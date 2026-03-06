@@ -39,6 +39,10 @@ class WebServer:
         self.app.route('/led/on')(self.handlers.led_on)
         self.app.route('/led/off')(self.handlers.led_off)
         self.app.route('/led/toggle')(self.handlers.led_toggle)
+        self.app.route('/led/blink')(self.handlers.led_blink)
+
+        # Morse code
+        self.app.route('/morse')(self.handlers.morse_blink)
 
         # Display control (pragmatic approach - accepts GET for browser testing)
         self.app.get('/message')(self.handlers.message_handler)   # GET reads or sets message

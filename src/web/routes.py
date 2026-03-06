@@ -3,6 +3,8 @@ HTTP route handlers for the web server.
 """
 from microdot import send_file
 from core.logger import get_logger
+from hardware.morse import MorseEncoder
+import asyncio
 
 logger = get_logger('Routes')
 
@@ -99,8 +101,110 @@ class RouteHandlers:
         self.led.toggle()
         logger.info("LED toggled via HTTP request")
         return {'led': self._led_state_response()}
+    
+    async def led_blink(self, request):
+        """
+        Blink LED multipletimes.
 
-    # Display control
+        Query parameters:
+            count: Number of blinks (default: 3, max: 20)
+            interval: Interval between blinks in seconds (default 0.5, max: 2.0)
+
+        example:
+            GET /led/blink?count=5&interval=0.3 → Blinks LED 5 times with 0.3s interval
+        """
+        try:
+            count = int(request.args.get('count', 3))
+            interval = float(request.args.get('interval', 0.5))
+        except ValueError:
+            return {'error': 'Invalid count or interval'}, 400
+        
+        count = max(1, min(count, 20))
+        interval = max(0.1, min(interval, 2.0))
+
+        logger.info(f"Blinking LED {count} times with {interval}s interval via HTTP request")
+
+        initial_state = self.led.is_on
+
+        for i in range (count):
+            self.led.on()
+            await asyncio.sleep(interval)
+            self.led.off()
+            await asyncio.sleep(interval)
+
+        if initial_state:
+            self.led.on()
+
+        return {
+            'action': 'blink',
+            'count': count,
+            'interval': interval,
+            'led': self._led_state_response()
+        }
+
+    async def morse_blink(self, request):
+        """
+        Blink LED in Morse code.
+
+        Query/POST parameters:
+            text: Text to encode (required, max 20 chars)
+            speed: Dot duration in seconds (optional, default 0.2, range 0.1-0.5)
+
+        Examples:
+            GET /morse?text=SOS
+            GET /morse?text=HELP&speed=0.3
+            POST /morse with {"text": "OK"}
+
+        Returns:
+            JSON with morse code and duration
+
+        Errors:
+            400 - Missing text parameter
+            400 - Text too long (>20 chars)
+            400 - Invalid characters
+            400 - Invalid speed value
+        """
+        # Extract text from query params or JSON body
+        text = None
+        try:
+            if request.json:
+                text = request.json.get('text')
+        except:
+            pass
+
+        if text is None:
+            text = request.args.get('text', None)
+
+        # Validate text parameter
+        if not text:
+            return {'error': 'Missing text parameter'}, 400
+
+        text = text.strip()
+        if len(text) > 20:
+            return {'error': 'Text too long (max 20 characters)'}, 400
+
+        # Extract and validate speed parameter
+        try:
+            speed = float(request.args.get('speed', 0.2))
+            speed = max(0.1, min(speed, 0.5))  # Limit between 0.1 and 0.5
+        except ValueError:
+            return {'error': 'Invalid speed value'}, 400
+
+        # Encode and blink
+        try:
+            morse_encoder = MorseEncoder(self.led, display=self.display, dot_duration=speed)
+            result = await morse_encoder.blink_morse(text)
+
+            logger.info(f"Morse code sent: {text} -> {result['morse']}")
+            return result
+
+        except ValueError as e:
+            logger.warning(f"Morse encoding error: {e}")
+            return {'error': str(e)}, 400
+        except Exception as e:
+            logger.error(f"Morse error: {e}")
+            return {'error': 'Internal error'}, 500
+
     async def message_handler(self, request):
         """
         Handle display messages - GET or SET.
