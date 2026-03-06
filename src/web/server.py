@@ -33,6 +33,7 @@ class WebServer:
         # API endpoints
         self.app.route('/hello')(self.handlers.hello)
         self.app.route('/health')(self.handlers.health)
+        self.app.route('/storage')(self.handlers.storage_info)
 
         # LED control
         self.app.route('/led')(self.handlers.get_led_status)

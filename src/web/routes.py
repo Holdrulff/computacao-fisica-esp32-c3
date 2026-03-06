@@ -75,6 +75,59 @@ class RouteHandlers:
 
         return health_data
 
+    async def storage_info(self, request):
+        """
+        Get filesystem storage information.
+
+        Returns:
+            JSON with storage statistics:
+            - total: Total storage in bytes
+            - used: Used storage in bytes
+            - free: Free storage in bytes
+            - used_percent: Percentage of storage used
+            - total_mb: Total storage in MB
+            - used_mb: Used storage in MB
+            - free_mb: Free storage in MB
+        """
+        import os
+
+        try:
+            # Get filesystem statistics
+            stat = os.statvfs('/')
+
+            # Calculate sizes (in bytes)
+            block_size = stat[0]  # f_bsize
+            total_blocks = stat[2]  # f_blocks
+            free_blocks = stat[3]  # f_bfree
+
+            total_bytes = total_blocks * block_size
+            free_bytes = free_blocks * block_size
+            used_bytes = total_bytes - free_bytes
+
+            # Calculate percentages
+            used_percent = (used_bytes / total_bytes * 100) if total_bytes > 0 else 0
+
+            # Convert to MB for readability
+            total_mb = total_bytes / (1024 * 1024)
+            used_mb = used_bytes / (1024 * 1024)
+            free_mb = free_bytes / (1024 * 1024)
+
+            logger.info(f"Storage: {used_mb:.2f}MB used / {total_mb:.2f}MB total ({used_percent:.1f}%)")
+
+            return {
+                'total': total_bytes,
+                'used': used_bytes,
+                'free': free_bytes,
+                'used_percent': round(used_percent, 2),
+                'total_mb': round(total_mb, 2),
+                'used_mb': round(used_mb, 2),
+                'free_mb': round(free_mb, 2)
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to get storage info: {e}")
+            return {'error': 'Failed to get storage information'}, 500
+
     # LED control
     def _led_state_response(self) -> str:
         """Get LED state as string."""

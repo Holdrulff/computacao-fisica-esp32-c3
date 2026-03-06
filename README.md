@@ -18,8 +18,10 @@
 
 Dispositivo IoT que se conecta ao WiFi e permite, através do navegador web:
 
-- ✅ **Controlar LED** integrado (ligar/desligar/toggle)
+- ✅ **Controlar LED** integrado (ligar/desligar/toggle/piscar)
+- ✅ **Código Morse** via LED com display progressivo
 - ✅ **Exibir mensagens** no display OLED
+- ✅ **Monitorar armazenamento** (espaço em disco)
 - ✅ **Acessar REPL remoto** via WebREPL (CLI Python)
 - ✅ **Gerenciar arquivos** do sistema
 - ✅ **API REST** completa com endpoints JSON
@@ -59,7 +61,8 @@ src/
 │
 ├── hardware/               # 🔧 Hardware abstraction layer
 │   ├── led.py             # LED control (supports active-low)
-│   └── display.py         # OLED display (SSD1306)
+│   ├── display.py         # OLED display (SSD1306)
+│   └── morse.py           # Morse code encoder with LED signaling
 │
 ├── net_manager/            # 🌐 Network management
 │   └── wifi_manager.py    # WiFi with retry logic
@@ -220,6 +223,7 @@ mpremote connect COM3 cp src/core/logger.py :core/logger.py
 mpremote connect COM3 cp src/hardware/__init__.py :hardware/__init__.py
 mpremote connect COM3 cp src/hardware/led.py :hardware/led.py
 mpremote connect COM3 cp src/hardware/display.py :hardware/display.py
+mpremote connect COM3 cp src/hardware/morse.py :hardware/morse.py
 
 # Upload módulos network
 mpremote connect COM3 cp src/net_manager/__init__.py :net_manager/__init__.py
@@ -258,6 +262,7 @@ mpremote connect COM3 exec "import machine; machine.reset()"
 |----------|--------|-----------|----------|
 | `/hello` | GET | Ping simples | `{"message": "Hello from dv01.local", "status": "ok"}` |
 | `/health` | GET | Status completo do sistema | JSON com rede, hardware, display |
+| `/storage` | GET | Informações de armazenamento | JSON com total, usado, livre (MB e bytes) |
 
 **Exemplo `/health`:**
 ```json
@@ -276,6 +281,19 @@ mpremote connect COM3 exec "import machine; machine.reset()"
 }
 ```
 
+**Exemplo `/storage`:**
+```json
+{
+  "total": 1572864,
+  "used": 524288,
+  "free": 1048576,
+  "used_percent": 33.33,
+  "total_mb": 1.5,
+  "used_mb": 0.5,
+  "free_mb": 1.0
+}
+```
+
 ### Controle de LED
 
 | Endpoint | Método | Descrição | Resposta |
@@ -284,12 +302,51 @@ mpremote connect COM3 exec "import machine; machine.reset()"
 | `/led/on` | GET | Liga o LED | `{"led": "on"}` |
 | `/led/off` | GET | Desliga o LED | `{"led": "off"}` |
 | `/led/toggle` | GET | Alterna estado do LED | `{"led": "on"}` ou `{"led": "off"}` |
+| `/led/blink` | GET | Pisca o LED N vezes | JSON com ação, count, interval, estado |
 
-**Exemplo:**
+**Exemplo básico:**
 ```bash
 curl http://dv01.local:5000/led/on
 # Resposta: {"led":"on"}
 ```
+
+**Exemplo blink:**
+```bash
+# Piscar 5 vezes com intervalo de 0.3s
+curl "http://dv01.local:5000/led/blink?count=5&interval=0.3"
+# Resposta: {"action":"blink","count":5,"interval":0.3,"led":"off"}
+```
+
+**Parâmetros `/led/blink`:**
+- `count`: Número de piscadas (padrão: 3, limite: 1-20)
+- `interval`: Intervalo em segundos (padrão: 0.5, limite: 0.1-2.0)
+
+### Código Morse
+
+| Endpoint | Método | Descrição | Parâmetros |
+|----------|--------|-----------|------------|
+| `/morse?text=SOS` | GET | Pisca LED em Morse e mostra no display | `text` (obrigatório, máx 20 chars), `speed` (opcional, 0.1-0.5s) |
+| `/morse` | POST | Pisca LED em Morse | `{"text": "SOS", "speed": 0.2}` (JSON body) |
+
+**Exemplo GET:**
+```bash
+curl "http://dv01.local:5000/morse?text=SOS"
+# Resposta: {"text":"SOS","morse":"... --- ...","duration":7.4,"led":"off"}
+```
+
+**Exemplo POST:**
+```bash
+curl -X POST http://dv01.local:5000/morse \
+  -H "Content-Type: application/json" \
+  -d '{"text":"HELLO"}'
+# Resposta: {"text":"HELLO","morse":".... . .-.. .-.. ---","duration":12.5,"led":"off"}
+```
+
+**Funcionalidades:**
+- ✅ Suporta A-Z, 0-9, pontuação (`.`, `,`, `?`, `!`, `-`)
+- ✅ Display mostra cada letra progressivamente durante transmissão
+- ✅ Timing padrão internacional (ITU-R M.1677-1)
+- ✅ Velocidade ajustável via parâmetro `speed`
 
 ### Controle de Display
 
@@ -505,8 +562,11 @@ mpremote connect COM3 exec "import machine; machine.reset()"
 ✅ Credenciais em `.env` (não commitadas)
 ✅ `.gitignore` protege arquivos sensíveis
 ✅ Validação de entrada (prevenção de directory traversal)
+✅ Validação de parâmetros com limites (count, interval, speed, text length)
+✅ Sanitização de caracteres em Morse (apenas suportados)
 ✅ WebREPL com senha
 ✅ Sem hardcoded secrets no código
+✅ Rate limiting implícito (limites de operação por request)
 
 ### Recomendações
 
@@ -533,6 +593,14 @@ mpremote connect COM3 exec "import machine; machine.reset()"
 - **Microdot**: Web framework assíncrono
 - **micropython-dotenv**: Gerenciamento de configuração
 - **WebREPL**: Acesso remoto ao REPL Python
+- **Código Morse**: Encoder ITU-R M.1677-1 com feedback visual
+
+### Funcionalidades Avançadas
+
+- **LED Blinking**: Controle parametrizado de piscadas
+- **Morse Code Encoder**: Transmissão de texto em código Morse com display progressivo
+- **Storage Monitoring**: Monitoramento de espaço em disco (total, usado, livre)
+- **Progressive Display**: Atualização em tempo real durante transmissão Morse
 
 ### Arquitetura
 
@@ -541,6 +609,7 @@ mpremote connect COM3 exec "import machine; machine.reset()"
 - **Error resilience**: Try-catch + graceful degradation
 - **Logging**: Structured logs com timestamps
 - **Type hints**: Documentação via tipos Python
+- **Input validation**: Validação robusta de parâmetros (limites, tipos, sanitização)
 
 ---
 

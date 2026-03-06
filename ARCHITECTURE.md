@@ -296,6 +296,66 @@ class Display:
 - ✅ **Verificação de Disponibilidade**: propriedade `is_available`
 - ✅ **Resiliência a Erros**: Try-catch em todas operações
 
+#### `hardware/morse.py` - Codificador Morse
+
+```python
+class MorseEncoder:
+    """
+    Morse code encoder with LED signaling and display feedback
+
+    Implements ITU-R M.1677-1 international standard
+    """
+
+    def __init__(self, led, display=None, dot_duration=0.2):
+        self.led = led
+        self.display = display  # Optional display for progress
+        self.dot_duration = dot_duration
+        self.dash_duration = dot_duration * 3
+        # Timing standard (ITU-R M.1677-1)
+        self.symbol_gap = dot_duration      # Between dots/dashes
+        self.letter_gap = dot_duration * 3  # Between letters
+        self.word_gap = dot_duration * 7    # Between words
+
+    async def blink_morse(self, text):
+        """Encode text to Morse and blink LED with display sync"""
+        morse = self.text_to_morse(text)
+
+        # Progressive display update during transmission
+        for char_idx, letter in enumerate(text):
+            if self.display:
+                self.display.show_message(text[:char_idx + 1])
+            await self._blink_letter(morse_for_letter)
+
+        return {'text': text, 'morse': morse, 'duration': ...}
+```
+
+**Decisões de Design**:
+- ✅ **Dependency Injection**: LED e Display injetados (testável)
+- ✅ **Progressive Display**: Mostra cada letra conforme é transmitida
+- ✅ **Standard Timing**: Segue padrão internacional ITU-R M.1677-1
+- ✅ **Async Operations**: Não bloqueia o servidor durante transmissão
+- ✅ **Parameterizable Speed**: Velocidade ajustável via `dot_duration`
+- ✅ **State Preservation**: Restaura estado inicial do LED após transmissão
+- ✅ **Character Validation**: Valida caracteres suportados (A-Z, 0-9, pontuação)
+
+**Timing Standard (ITU-R M.1677-1)**:
+```
+Dot (·):        200ms (base unit)
+Dash (−):       600ms (3× dot)
+Symbol gap:     200ms (1× dot)
+Letter gap:     600ms (3× dot)
+Word gap:      1400ms (7× dot)
+```
+
+**Exemplo de Uso**:
+```python
+# SOS em Morse: ... --- ...
+encoder = MorseEncoder(led, display, dot_duration=0.2)
+result = await encoder.blink_morse("SOS")
+# Display mostra: S → SO → SOS progressivamente
+# LED pisca: ··· (gap) −−− (gap) ···
+```
+
 ### 3. Camada de Rede (`net_manager/`)
 
 **Responsabilidade**: Gestão de conectividade
@@ -378,10 +438,17 @@ class WebServer:
 
         # API endpoints
         self.app.route('/health')(self.handlers.health)
+        self.app.route('/storage')(self.handlers.storage_info)
 
         # LED control
+        self.app.route('/led')(self.handlers.get_led_status)
         self.app.route('/led/on')(self.handlers.led_on)
         self.app.route('/led/off')(self.handlers.led_off)
+        self.app.route('/led/toggle')(self.handlers.led_toggle)
+        self.app.route('/led/blink')(self.handlers.led_blink)
+
+        # Morse code
+        self.app.route('/morse')(self.handlers.morse_blink)
 
         # Display control (GET and POST)
         self.app.get('/message')(self.handlers.message_handler)
@@ -427,6 +494,64 @@ class RouteHandlers:
         self.last_message = text
         self.display.show_message(text)
         return {'message': text, 'displayed': True}
+
+    async def led_blink(self, request):
+        """
+        Parametrized LED blinking with validation
+        """
+        count = int(request.args.get('count', 3))
+        interval = float(request.args.get('interval', 0.5))
+
+        # Input validation with limits
+        count = max(1, min(count, 20))
+        interval = max(0.1, min(interval, 2.0))
+
+        # Async blinking (non-blocking)
+        for i in range(count):
+            self.led.on()
+            await asyncio.sleep(interval)
+            self.led.off()
+            await asyncio.sleep(interval)
+
+        return {'action': 'blink', 'count': count, 'interval': interval}
+
+    async def morse_blink(self, request):
+        """
+        Morse code transmission with progressive display
+        """
+        text = request.args.get('text')
+        speed = float(request.args.get('speed', 0.2))
+
+        # Validation
+        if not text:
+            return {'error': 'Missing text parameter'}, 400
+        if len(text) > 20:
+            return {'error': 'Text too long'}, 400
+
+        # Create encoder and transmit
+        morse_encoder = MorseEncoder(self.led, self.display, speed)
+        result = await morse_encoder.blink_morse(text)
+
+        return result  # {'text': ..., 'morse': ..., 'duration': ...}
+
+    async def storage_info(self, request):
+        """
+        Filesystem storage information
+        """
+        import os
+        stat = os.statvfs('/')
+
+        # Calculate storage metrics
+        total_bytes = stat[2] * stat[0]  # blocks * block_size
+        free_bytes = stat[3] * stat[0]   # free_blocks * block_size
+        used_bytes = total_bytes - free_bytes
+
+        return {
+            'total_mb': round(total_bytes / (1024**2), 2),
+            'used_mb': round(used_bytes / (1024**2), 2),
+            'free_mb': round(free_bytes / (1024**2), 2),
+            'used_percent': round(used_bytes / total_bytes * 100, 2)
+        }
 ```
 
 **Decisões de Design**:
@@ -434,6 +559,9 @@ class RouteHandlers:
 - ✅ **Respostas JSON**: Sempre retorna JSON válido
 - ✅ **Tratamento de Erros**: Try-catch em operações críticas
 - ✅ **Degradação Graciosa**: Funciona sem display
+- ✅ **Input Validation**: Limites para prevenir abuso (count, interval, text length)
+- ✅ **Async Operations**: Operações longas não bloqueiam o servidor
+- ✅ **Progressive Feedback**: Display atualizado durante transmissão Morse
 
 ---
 
