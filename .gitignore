@@ -1,0 +1,11 @@
+venv
+thonny-ide
+
+# Environment files with secrets
+.env
+src/.env
+
+# Keep .env.example as template
+!src/.env.example
+
+micropython-dotenv

@@ -1,186 +1,585 @@
-# ProjetoBasico-CFA
+# ESP32-C3 IoT Device - Refactored Edition
 
-![](./4929270778520341423.jpg)
+![ESP32-C3 Device](./mdImageAssets/4929270778520341423.jpg)
 
+## 📋 Índice
 
-Esta é a documentação do dispositivo que usaremos em CFA durante algum tempo com o objetivo de entender como programar e como construir dispositivos. Existem algumas maneiras para aproveitá-la:
+1. [O que o Dispositivo Faz](#-o-que-o-dispositivo-faz)
+2. [Arquitetura Refatorada](#-arquitetura-refatorada)
+3. [Como Usar](#-como-usar)
+4. [Como Replicar](#-como-replicar)
+5. [API Endpoints](#-api-endpoints)
+6. [Estrutura do Código](#-estrutura-do-código)
+7. [Troubleshooting](#-troubleshooting)
 
-1. Saber quais são as funcionalidades implementadas, em nível bastante abstrato;
-2. Como ligar o dispositivo e acessar suas funcionalidades;
-3. Replicar o dispositivo;
-4. Compreender a estratégia de documentação (ex.: para reaplicá-la para um outro dispositivo);
-5. Compreender em que ordem (ou se existe ordem) para desenvolver este dispositivo;
-6. Compreender como partes do software/hardware funcionam (ex.: para reusar essas partes);
+---
 
-## Quais são as funcionalidades implementadas
+## 🎯 O que o Dispositivo Faz
 
-O dispositivo está programado para conectar-se a um ponto de acesso WiFi e permitir que, através do navegador web, seja possível:
-  
-- acender/apagar um LED embutido no dispositivo;
-- apresentar mensagens em sua tela;
-- acessar uma interface em linha de comando (CLI) e nela executar comandos Python;
-- criar, ler, gravar, apagar arquivos armazenados no dispositivo; 
-- essas funcionalidades podem ser usadas por vários usuários simultaneamente.
+Dispositivo IoT que se conecta ao WiFi e permite, através do navegador web:
 
-## Qual é o contexto (de conexão) apresentado na aula
+- ✅ **Controlar LED** integrado (ligar/desligar/toggle)
+- ✅ **Exibir mensagens** no display OLED
+- ✅ **Acessar REPL remoto** via WebREPL (CLI Python)
+- ✅ **Gerenciar arquivos** do sistema
+- ✅ **API REST** completa com endpoints JSON
+- ✅ **Multi-usuário** simultâneo via asyncio
+- ✅ **Configuração segura** com variáveis de ambiente (.env)
 
-![](./rede-aula.png)
+---
 
-O dispositivo recebe energia através do seu conector USB (não mostrado na figura) e conecta-se à rede WiFi `aula`. A rede `aula` é suportada por um WiFi Hotspot executado no notebook branco em uma de suas interfaces de rede. Na outra interface de rede o notebook conecta-se a um ponto de acesso WiFi (AP) nas proximidades da sala de aula. O ponto de acesso faz parte da infraestrutura de Internet da escola, esta suporta `eduroam`. Seus dispositivos pessoais (majoritariamente telefones celulares) também conectam-se à infraestrutura de Internet da escola mas não necessariamente ao mesmo AP.
+## 🏗️ Arquitetura Refatorada
 
-A dúvida que tenho: Nesta configuração de rede, o dispositivo pode ser acessado pelos seus celulares pelo IP? (Já vi que o nome do domínio não é propagado pelo programa de Hotspot do notebook. Não verifiquei se isso pode ser configurado). 
+Este projeto foi **completamente refatorado** seguindo princípios de engenharia de software moderna:
 
+### Padrões Aplicados
 
-## Como ligar o dispositivo e acessar suas funcionalidades
+- ✅ **Dependency Injection** - Componentes recebem dependências explicitamente
+- ✅ **Separation of Concerns** - Hardware, rede e web em camadas isoladas
+- ✅ **SOLID Principles** - Single responsibility, Open-closed, Dependency inversion
+- ✅ **Error Handling** - Try-catch abrangente com graceful degradation
+- ✅ **Structured Logging** - Sistema de logs com níveis e timestamps
+- ✅ **Hardware Abstraction** - LEDs e displays com interfaces limpas
+- ✅ **Configuration Management** - Credenciais em .env (não no código)
+- ✅ **Type Hints** - Documentação através de tipos Python
 
-Antes de ligar o dispositivo, criar uma rede WiFi de 2.4GHz com nome **lab8** e senha **lab8arduino**. Isto pode ser feito ajustando um ponto de acesso WiFi ou configurando um telefone celular como hotspot WiFi.
-
-Ligar o dispositivo conectando-o, através do conector USB, a um carregador ou a um computador (talvez seja possível conectar a um telefone celular através de um cabo OTG).
-
-Quando ligado e pronto para operar um número como 192.168.0.6 é mostrado na tela do dispositivo. Caso, depois de ligado por mais de 30 segundos, a tela não apresentar nada, ou ser preenchida com letras, ou apresentar o número 0.0.0.0, há algum problema. Neste ponto, o que é possível fazer com o que se sabe até agora é checar se a rede WiFi foi criada corretamente e reiniciar o dispositivo, desligando-o, esperando uns segundos e religando.
-
-Com o dispositivo ligado e pronto para operar, usar um computador ou telefone celular, abrir o navegador web e digitar o endereço `http://dv01.local:5000/`. Uma tela como a da foto abaixo deve aparecer no navegador:
-  
-![](./Captura%20de%20tela%20de%202026-02-11%2018-55-08.png)
-
-
-As rotas que podem ser acessadas no servidor são:
-
-| rota | efeito no navegador | efeito no dispositivo |
-| --- | --- | --- |
-| / | mostra a página index.html | - |
-| /hello | mostra o texto 'hello from dv01.local' | - |
-| /led | mostra o texto on caso o LED esteja apagado, off caso o LED esteja aceso | - |
-| /led/on | mostra o texto on | apaga o LED |
-| /led/off | mostra o texto off | acende o LED |
-| /message | mostra o texto que está sendo mostrado no display | - |
-| /message?text="xxx" | mostra o texto passado como argumento em 'text' | mostra no display o texto passado como argumento em 'text' |
-| /www/webrepl/webrepl.html | Mostra a página para acesso a interface de comando (REPL) | para conectar, substituir o número da porta de 5000 para 8266 na caixa de texto ao lado do botão connect e, em seguida, apertar o botão|
-
-Experimente as funcionalidades.
-
-## Como replicar o dispositivo
-
-### Materiais e ferramentas
-
-- Computador com Linux, acesso à internet e porta USB 
-- Cabo de dados para conectar o computador ao dispositivo
-- Dispositivo: ESP32-C3 supermini com display embutido de 0.42" 
-
-### Procedimento
-
-1. Instalar o firmware micropython - veja https://www.micropython.org/download/ESP32_GENERIC_C3/
-   - lembre de dar ao seu usuário acesso à porta USB com o comando `sudo usermod -a -G dialout <username>` (https://support.arduino.cc/hc/en-us/articles/360016495679-Fix-port-access-on-Linux)
-   - as portas existentes são criadas no diretório `/dev` e têm o prefixo tty. Geralmente `ttyACM?` ou `ttyUSB?`;
-2. Testar o envio de comandos python usando a IDE Thonny;
-6. Executar no dispositivo, através do Thonny: `import webrepl_setup`. Isto habilita webREPL (https://github.com/micropython/webrepl)
-5. Sair do Thonny
-2. Instalar `rshell` no desktop - execute `pip3 install rshell` - veja https://github.com/dhylands/rshell
-3. Clonar este repositório no desktop - `git clone https://github.com/FNakano/ProjetoBasico-CFA.git`
-4. Copiar o conteúdo da pasta `src` para o dispositivo;
-   1. Com o dispositivo conectado ao computador através da porta USB, execute `rshell --port /dev/ttyACM0` se necessário, ajuste a porta;
-   2. No rshell execute `cp -r src/* /pyboard`
-5. Reiniciar o dispositivo, deve funcionar como em https://github.com/FNakano/ProjetoBasico-CFA?tab=readme-ov-file#como-ligar-o-dispositivo-e-acessar-suas-funcionalidades
-
-## Como o dispositivo foi feito, como os pacotes e o programa estão organizados
-
-O ESP32-C3 supermini com display embutido de 0.42" 
-é uma placa de desenvolvimento, ou placa microcontroladora, ou placa, ... baseada no microcontrolador ESP32-C3. O microcontrolador contém um processador com arquitetura RISC-V e controladores de periféricos como WiFi, Bluetooth, SPI, I2C, UART, ... (https://documentation.espressif.com/esp32-c3_datasheet_en.pdf). Nos ESP32 os pinos são mapeados através de multiplexes de maneira que a atribuição de pinos pode ser modificada. Essa placa em particular vem com um display OLED com driver SSD1306 que implementa o protocolo I2C, conectado aos pinos 5 e 6 da placa microcontroladora. Também tem um LED conectado ao pino 8.
-
-A placa microcontrolada recebe programas através da porta USB (ié, a placa contém componentes adicionais, conexões e programas que permitem transmissão de dados e programas entre a UART do microcontrolador e a porta USB do computador). Quando o programa transmitido é o firmware MicroPython, este é construído de maneira a controlar o microcontrolador.
-
-MicroPython, como outros Python, executa um *Read Evaluate Print Loop - REPL* que recebe comandos através da UART/porta USB, executa os comandos, envia os resultados pela UART/porta USB em um loop. É peculiar ao MicroPython a organização da memória FLASH que não armazena o MicroPython em um sistema de arquivos. É possível pensar que o sistema operacional tem um console/prompt Python e um sistema de arquivos.
-
-A pessoa que programa o dispositivo usa uma IDE como Thonny para gerenciar os arquivos e editar/executar os programas.
-
-Há dois pacotes Python de importância especial: `boot.py` e `main.py`. Os dois são executados durante o boot do firmware. Primeiro `boot.py` e depois `main.py`. Nesta placa microcontroladora, `boot.py` não pode ser interrompido pela IDE, já `main.py` pode ser interrompido pela IDE.
-
-O projeto básico documentado aqui é composto pelos seguintes pacotes: `display.py`, `lab8.py`, `startsystem.py`, `config.py`, `httpserver.py`, `led.py`, `main.py`. Os outros pacotes podem ou não ser usados por este projeto. Os pacotes `/lib/ssd1306.py`, `/lib/microdot.py` e `aiorepl.py` são usados por este projeto mas não foram escritos no escopo deste projeto. 
-
-`config.py` contém variáveis globais. Algumas podem ser modificadas pelo usuário, outras não. Isto é indicado dentro do arquivo.
-
-`lab8.py` contém os comandos que devem ser executados para conexão à rede WiFi.
-
-`httpserver.py` contém as rotas do servidor HTTP e respectivos comandos. O conteúdo estático está na pasta `www`.
-
-`led.py` contém comandos para configuração do LED embutido.
-
-`display.py` contém comandos e funções para configurar e usar o display OLED.
-
-`startsystem.py` contém os comandos que agrupam as linhas (threads) de execução - a execução é assíncrona usando `asyncio`. As linhas são o servidor web e o servidor REPL.
-
-`main.py` importa o pacote `startsystem` o que faz o programa executar.
-
-![](./callgraph/callgraph.png)
-
-grafo de chamadas gerado com pyan (https://github.com/davidfraser/pyan), convertido para svg com graphviz (dot) e convertido para png com inkscape.
-  
-```
-pyan3 *.py --uses  --colored --grouped --annotated --dot >callgraph.dot
-dot -Tsvg callgraph.dot >callgraph.svg
+### Estrutura de Pastas
 
 ```
+src/
+├── boot.py                 # MicroPython boot script
+├── main.py                 # Application entry point
+├── config.py               # Configuration loader (uses .env)
+├── constants.py            # System constants
+├── .env                    # Credentials (gitignored)
+│
+├── core/                   # 🧠 Core application logic
+│   ├── app.py             # Main Application class (orchestrator)
+│   └── logger.py          # Structured logging system
+│
+├── hardware/               # 🔧 Hardware abstraction layer
+│   ├── led.py             # LED control (supports active-low)
+│   └── display.py         # OLED display (SSD1306)
+│
+├── net_manager/            # 🌐 Network management
+│   └── wifi_manager.py    # WiFi with retry logic
+│
+├── web/                    # 🌍 Web server
+│   ├── server.py          # Microdot server setup
+│   └── routes.py          # HTTP route handlers
+│
+├── lib/                    # 📚 Third-party libraries
+│   ├── dotenv_micro.py    # micropython-dotenv
+│   ├── microdot.py        # Async web framework
+│   ├── ssd1306.mpy        # Display driver
+│   └── aiorepl.mpy        # Async REPL
+│
+└── www/                    # 🎨 Static web assets
+    ├── index.html
+    ├── index.css
+    └── webrepl/           # WebREPL client
+```
 
+### Fluxo de Execução
 
-## Compreender a estratégia de documentação
+```
+[ESP32 Powers On]
+        ↓
+boot.py → Starts WebREPL
+        ↓
+main.py → Creates Application instance
+        ↓
+Application.setup():
+    1. Initialize Hardware (LED, Display)
+    2. Connect to WiFi (with retry + LED feedback)
+    3. Initialize Web Server (Microdot)
+    4. Display status on OLED
+        ↓
+Application.run():
+    ├─ Web Server (async task on port 5000)
+    └─ aiorepl (async task - REPL prompt)
+        ↓
+[Event Loop runs until shutdown]
+```
 
-Há vários públicos que podem interessar-se em um projeto. Por exemplo, quem quer apenas saber o que o dispositivo faz, ou quem quer usar o dispositivo, ou quem quer replicar, ou quem quer dar manutenção, ... cada um desses públicos busca documentação de formas diferentes e em ordem/formato diferente.
+---
 
-Até onde consegui alcançar, acredito que existe como organizar a documentação de maneira que esta tenha os assuntos ordenados em ordem crescente de complexidade. Desta maneira a documentação fica organizada e os públicos conseguem escolher bem o que saltar e o que ler da documentação.
+## 🚀 Como Usar
 
-A ordem é:
+### 1. Configuração Inicial
 
-1. Só saber o que o dispositivo faz;
-2. Usar o dispositivo;
-3. Replicar o dispositivo;
-4. Saber como o particular dispositivo foi feito;
-4. Saber como o particular dispositivo foi projetado;
-5. Saber como o particular dispositivo foi documentado;
-6. Saber como dispositivos podem ser desenvolvidos e que documentação de andamento do projeto foi gerada.
+**Antes de ligar o dispositivo**, configure suas credenciais WiFi:
 
+1. Edite o arquivo `src/.env`:
+   ```env
+   WIFI_SSID=sua_rede
+   WIFI_PASSWORD=sua_senha
+   HOSTNAME=dv01
+   ```
 
-## Compreender em que ordem (ou se existe ordem) para projetar e desenvolver dispositivos;
+2. Faça upload para o ESP32 (veja seção [Como Replicar](#-como-replicar))
 
-Acredito que não exista ordem para projetar e desenvolver dispositivos. Claro que é possível usar técnicas de engenharia (de software e/ou de hardware). Essas técnicas são muito eficazes, quando se sabe o que cada parte faz, o que nem sempre é o caso. 
+### 2. Ligando o Dispositivo
 
-Quando o projeto é indefinido, convém usar uma parte do tempo buscando componentes e funcionalidades interessantes e anotando o resultado da exploração, talvez, em um diário. Algo parecido foi feito em https://github.com/FNakano/CFA/tree/master/projetos/py-understandSH1106
+1. **Conecte o ESP32** via USB (carregador ou computador)
+2. **Aguarde ~10 segundos** - LED piscando indica tentativa de conexão
+3. **LED apaga** quando conectado com sucesso
+4. **Display mostra**: `dv01:5000 192.168.x.x`
 
-Quando esta exploração é feita com o objetivo de *construir algo interessante*, em algum momento, somos capazes de compor parte dos elementos buscados, chegando a *algo interessante*. Cabe considerar os requisitos dados por quem encomendou o projeto.
+### 3. Acessando via Navegador
 
-O *interessante* pode ser *algo relevante para uma comunidade científica*, aí estamos falando de pesquisa, revisão sistemática, ...
+Abra o navegador e acesse:
 
-Também pode ser inspirador ver projetos feitos por outros grupos em anos anteriores em https://github.com/FNakano/CFA há uma relação de projetos de anos anteriores e respectivos links.
+```
+http://dv01.local:5000
+```
 
-## Compreender como partes do software/hardware funcionam (ex.: para reusar essas partes);
+Ou use o IP mostrado no display:
+```
+http://192.168.x.x:5000
+```
 
-### asyncio
+**Interface Web**:
+- Página principal com informações do dispositivo
+- Links para controle de LED e display
+- Acesso ao WebREPL
 
-https://docs.micropython.org/en/latest/library/asyncio.html
+### 4. WebREPL (REPL Remoto)
 
-### aiorepl
+Para acessar o Python interativo remotamente:
 
-https://github.com/micropython/micropython-lib/tree/master/micropython/aiorepl
+1. Acesse: `http://dv01.local:5000/www/webrepl/webrepl.html`
+2. Clique em **"Connect"**
+3. Digite a senha: `star`
+4. Pronto! Você tem acesso ao REPL do ESP32
 
-### microdot
+---
 
-https://microdot.readthedocs.io/en/latest/
+## 🔧 Como Replicar
 
-### display OLED
+### Materiais
 
-https://github.com/FNakano/CFA/tree/master/projetos/py-understandSH1106
+- **ESP32-C3 Supermini** com display OLED 0.42" integrado
+- Cabo USB para dados
+- Computador com Python 3.x
 
+### Instalação
 
-## Características notáveis (para mim) do dispositivo
+#### Windows:
 
-Uso um ESP32-C3 super mini com display OLED de 0.42". Abreviando, placa microcontroladora.
+```powershell
+# 1. Clone o repositório
+git clone https://github.com/Holdrulff/computacao-fisica-esp32-c3.git
+cd computacao-fisica-esp32-c3
 
-A placa microcontroladora tem display e um LED. 
+# 2. Crie ambiente virtual e instale dependências
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
 
-O microcontrolador se comunica com o display através de um (chip) controlador (driver) SSD1306. O protocolo de comunicação é I2C. Os pinos do display:microcontrolador são SDA:5 SCL:6
+# 3. Flash MicroPython firmware
+esptool --port COM3 erase_flash
+esptool --port COM3 write_flash 0 firmware/ESP32_GENERIC_C3-20251209-v1.27.0.bin
 
-o LED está ligado ao pino 8 (GPIO8), é um LED comum (não é RGB, não é endereçável). O comando `.on()` apaga o LED e o comando `.off()` acende o LED.
+# 4. Configure credenciais WiFi
+# Edite src/.env com suas credenciais
+```
 
-## Características notáveis (para mim) do projeto básico
+#### Linux/Mac:
 
-O projeto básico é multithread através de `asyncio`. Com isto, é possível executar servidor HTTP e servidor WebREPL simultaneamente. Com isto, em tese, algumas pessoas podem navegar pelas páginas armazenadas no dispositivo enquanto outras podem modificar/executar programas, simultaneamente. (note as camadas na narrativa)
+```bash
+# 1. Clone o repositório
+git clone https://github.com/seu-usuario/esp32-c3-iot.git
+cd esp32-c3-iot
 
+# 2. Crie ambiente virtual e instale dependências
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# 3. Flash MicroPython firmware
+esptool.py --port /dev/ttyACM0 erase_flash
+esptool.py --port /dev/ttyACM0 write_flash 0 firmware/ESP32_GENERIC_C3-20251209-v1.27.0.bin
+
+# 4. Configure credenciais WiFi
+# Edite src/.env com suas credenciais
+```
+
+### Upload Manual
+
+```bash
+# Criar diretórios
+mpremote connect COM3 mkdir core hardware net_manager web lib
+
+# Upload módulos core
+mpremote connect COM3 cp src/core/__init__.py :core/__init__.py
+mpremote connect COM3 cp src/core/app.py :core/app.py
+mpremote connect COM3 cp src/core/logger.py :core/logger.py
+
+# Upload módulos hardware
+mpremote connect COM3 cp src/hardware/__init__.py :hardware/__init__.py
+mpremote connect COM3 cp src/hardware/led.py :hardware/led.py
+mpremote connect COM3 cp src/hardware/display.py :hardware/display.py
+
+# Upload módulos network
+mpremote connect COM3 cp src/net_manager/__init__.py :net_manager/__init__.py
+mpremote connect COM3 cp src/net_manager/wifi_manager.py :net_manager/wifi_manager.py
+
+# Upload módulos web
+mpremote connect COM3 cp src/web/__init__.py :web/__init__.py
+mpremote connect COM3 cp src/web/server.py :web/server.py
+mpremote connect COM3 cp src/web/routes.py :web/routes.py
+
+# Upload bibliotecas
+mpremote connect COM3 cp src/lib/dotenv_micro.py :lib/dotenv_micro.py
+mpremote connect COM3 cp src/lib/microdot.py :lib/microdot.py
+mpremote connect COM3 cp src/lib/ssd1306.mpy :lib/ssd1306.mpy
+mpremote connect COM3 cp src/lib/aiorepl.mpy :lib/aiorepl.mpy
+
+# Upload configuração e entry points
+mpremote connect COM3 cp src/constants.py :constants.py
+mpremote connect COM3 cp src/config.py :config.py
+mpremote connect COM3 cp src/.env :.env
+mpremote connect COM3 cp src/boot.py :boot.py
+mpremote connect COM3 cp src/main.py :main.py
+mpremote connect COM3 cp src/webrepl_cfg.py :webrepl_cfg.py
+
+# Reset
+mpremote connect COM3 exec "import machine; machine.reset()"
+```
+
+---
+
+## 📡 API Endpoints
+
+### Health & Status
+
+| Endpoint | Método | Descrição | Resposta |
+|----------|--------|-----------|----------|
+| `/hello` | GET | Ping simples | `{"message": "Hello from dv01.local", "status": "ok"}` |
+| `/health` | GET | Status completo do sistema | JSON com rede, hardware, display |
+
+**Exemplo `/health`:**
+```json
+{
+  "status": "healthy",
+  "hostname": "dv01",
+  "network": {
+    "connected": true,
+    "ssid": "sua_rede",
+    "ip": "192.168.1.100"
+  },
+  "hardware": {
+    "led": {"available": true, "state": "off"},
+    "display": {"available": true}
+  }
+}
+```
+
+### Controle de LED
+
+| Endpoint | Método | Descrição | Resposta |
+|----------|--------|-----------|----------|
+| `/led` | GET | Status atual do LED | `{"led": "on"}` ou `{"led": "off"}` |
+| `/led/on` | GET | Liga o LED | `{"led": "on"}` |
+| `/led/off` | GET | Desliga o LED | `{"led": "off"}` |
+| `/led/toggle` | GET | Alterna estado do LED | `{"led": "on"}` ou `{"led": "off"}` |
+
+**Exemplo:**
+```bash
+curl http://dv01.local:5000/led/on
+# Resposta: {"led":"on"}
+```
+
+### Controle de Display
+
+| Endpoint | Método | Descrição | Parâmetros |
+|----------|--------|-----------|------------|
+| `/message` | GET | Lê mensagem atual | - |
+| `/message?text=Hello` | GET | Define mensagem | `text` (query param) |
+| `/message` | POST | Define mensagem | `{"text": "Hello"}` (JSON body) |
+
+**Exemplo GET:**
+```bash
+curl "http://dv01.local:5000/message?text=Hello%20World"
+# Resposta: {"message": "Hello World", "displayed": true}
+```
+
+**Exemplo POST:**
+```bash
+curl -X POST http://dv01.local:5000/message \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Hello World"}'
+# Resposta: {"message": "Hello World", "displayed": true}
+```
+
+### Arquivos Estáticos
+
+| Endpoint | Descrição |
+|----------|-----------|
+| `/` | Página principal (index.html) |
+| `/www/<path>` | Arquivos estáticos |
+| `/www/webrepl/webrepl.html` | Cliente WebREPL |
+
+---
+
+## 📚 Estrutura do Código
+
+### Dependency Injection Pattern
+
+O projeto usa **injeção de dependências** para facilitar testes e manutenção:
+
+```python
+# ❌ Antes (global state):
+import config
+config.led.on()
+
+# ✅ Depois (dependency injection):
+class Application:
+    def __init__(self, wifi_ssid, wifi_password, hostname):
+        self.led = LED(pin=8, inverted=True)
+        self.display = Display(scl=6, sda=5)
+        self.wifi = WiFiManager(wifi_ssid, wifi_password, hostname)
+```
+
+**Benefícios:**
+- ✅ Testável (fácil criar mocks)
+- ✅ Explícito (claro quais dependências cada classe precisa)
+- ✅ Flexível (fácil trocar implementações)
+
+### Hardware Abstraction Layer
+
+**LED com suporte a Active-Low:**
+
+```python
+# O hardware do ESP32-C3 tem LED active-low (invertido)
+# on() → pin.off() → LED acende
+# off() → pin.on() → LED apaga
+
+led = LED(pin=8, inverted=True)
+led.on()   # ✅ Acende (abstração corrige a inversão)
+led.off()  # ✅ Apaga
+```
+
+**Display com Graceful Degradation:**
+
+```python
+display = Display(scl=6, sda=5)
+
+if display.is_available:
+    display.show_message("Hello")
+else:
+    logger.warning("Display not available")
+    # Aplicação continua funcionando!
+```
+
+### Structured Logging
+
+```python
+from core.logger import get_logger, LogLevel
+
+logger = get_logger('MyModule', LogLevel.INFO)
+
+logger.debug("Detalhes técnicos")
+logger.info("Informação geral")
+logger.warning("Aviso importante")
+logger.error("Erro recuperável")
+logger.critical("Erro fatal")
+```
+
+**Output:**
+```
+[123.456] INFO  [WiFi] WiFi connected successfully
+[124.789] DEBUG [LED] LED turned ON
+[125.123] ERROR [Display] Failed to initialize: timeout
+```
+
+### Configuration Management
+
+**Antes (hardcoded - INSEGURO):**
+```python
+WIFI_SSID = "minha_rede"      # ❌ Exposto no código
+WIFI_PASSWORD = "senha123"     # ❌ Commitado no git
+```
+
+**Depois (.env - SEGURO):**
+```python
+# src/.env (gitignored)
+WIFI_SSID=minha_rede
+WIFI_PASSWORD=senha123
+
+# src/config.py
+from dotenv_micro import load_dotenv, get_env
+
+load_dotenv('.env')
+WIFI_SSID = get_env('WIFI_SSID')
+WIFI_PASSWORD = get_env('WIFI_PASSWORD')
+```
+
+---
+
+## 🛠️ Troubleshooting
+
+### LED funciona ao contrário
+
+**Sintoma**: `/led/on` apaga o LED, `/led/off` acende.
+
+**Causa**: LED é active-low (comum em placas ESP32).
+
+**Solução**: Edite `src/constants.py`:
+```python
+LED_INVERTED = True  # ✅ Já está configurado
+```
+
+### Display não funciona
+
+**Sintoma**: Display não mostra nada.
+
+**Causa**: Display não conectado ou endereço I2C errado.
+
+**Solução**:
+1. Verifique conexões físicas (SCL=6, SDA=5)
+2. Teste no REPL:
+   ```python
+   from machine import I2C, Pin
+   i2c = I2C(0, scl=Pin(6), sda=Pin(5))
+   i2c.scan()  # Deve retornar [60] (0x3C)
+   ```
+3. Aplicação continua funcionando mesmo sem display
+
+### WiFi não conecta
+
+**Sintoma**: LED fica piscando, nunca apaga.
+
+**Soluções**:
+1. **Verifique `.env`**: Credenciais corretas?
+2. **2.4GHz obrigatório**: ESP32 não suporta 5GHz
+3. **iPhone hotspot**: Ative "Maximizar Compatibilidade"
+4. **Scan de redes**:
+   ```python
+   # No REPL
+   import network
+   wlan = network.WLAN(network.STA_IF)
+   wlan.active(True)
+   wlan.scan()  # Lista redes disponíveis
+   ```
+
+### WebREPL não conecta
+
+**Sintoma**: Erro "WebSocket connection failed".
+
+**Soluções**:
+1. Verifique se WebREPL está rodando:
+   ```bash
+   mpremote connect COM3
+   # No REPL: import webrepl; webrepl.start()
+   ```
+2. Use WebSocket na porta **8266** (não 5000):
+   ```
+   ws://192.168.x.x:8266/
+   ```
+3. Senha padrão: `star`
+
+### Erro "ImportError: no module named 'network.wifi_manager'"
+
+**Causa**: Conflito com módulo built-in `network` do MicroPython.
+
+**Solução**: ✅ Já corrigido - pasta renomeada para `net_manager`
+
+### ESP32 não reseta após upload
+
+**Solução**:
+```bash
+# Reset manual
+mpremote connect COM3 exec "import machine; machine.reset()"
+
+# Ou pressione o botão RESET físico na placa
+```
+
+---
+
+## 🔐 Segurança
+
+### Práticas Implementadas
+
+✅ Credenciais em `.env` (não commitadas)
+✅ `.gitignore` protege arquivos sensíveis
+✅ Validação de entrada (prevenção de directory traversal)
+✅ WebREPL com senha
+✅ Sem hardcoded secrets no código
+
+### Recomendações
+
+- 🔒 Troque senha do WebREPL em produção
+- 🔒 Use redes WiFi com WPA2/WPA3
+- 🔒 Não exponha porta 5000 para internet pública
+- 🔒 Faça backup do `.env` de forma segura
+
+---
+
+## 🎓 Características Notáveis
+
+### Hardware
+
+- **ESP32-C3 Supermini** com display OLED 0.42" (72x40px)
+- **Display**: SSD1306, I2C (SCL=6, SDA=5, addr=0x3C)
+- **LED**: Pino 8 (GPIO8), **active-low** (invertido)
+- **WiFi**: 2.4GHz apenas (802.11 b/g/n)
+
+### Software
+
+- **MicroPython v1.27.0** (ESP32-C3)
+- **Async/await**: `asyncio` para concorrência
+- **Microdot**: Web framework assíncrono
+- **micropython-dotenv**: Gerenciamento de configuração
+- **WebREPL**: Acesso remoto ao REPL Python
+
+### Arquitetura
+
+- **Zero globals**: Dependency injection pattern
+- **Layered architecture**: Core → Hardware → Network → Web
+- **Error resilience**: Try-catch + graceful degradation
+- **Logging**: Structured logs com timestamps
+- **Type hints**: Documentação via tipos Python
+
+---
+
+## 📖 Documentação Adicional
+
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Arquitetura detalhada e padrões de design
+- **[TESTING_GUIDE.md](TESTING_GUIDE.md)** - Como testar com .env
+- **[MIGRATION_GUIDE.md](MIGRATION_GUIDE.md)** - Migração completa passo a passo
+- **[micropython-dotenv/](micropython-dotenv/)** - Biblioteca de configuração
+
+---
+
+## 🤝 Contribuindo
+
+Este é um projeto educacional desenvolvido para **Computação Física Aplicada (CFA)**.
+
+Melhorias são bem-vindas:
+1. Fork o projeto
+2. Crie uma branch (`git checkout -b feature/melhoria`)
+3. Commit suas mudanças (`git commit -m 'Add: nova feature'`)
+4. Push para a branch (`git push origin feature/melhoria`)
+5. Abra um Pull Request
+
+---
+
+## 📜 Licença
+
+Este projeto é open-source e está disponível sob a licença MIT.
+
+---
+
+## 👨‍💻 Autor
+
+**Projeto Original**: Prof. Fábio Nakano
+**Refatorado por**: Wesley Fernandes - Graduando
+**Instituição**: EACH-USP
+**Curso**: Sistemas de Informação
+
+---
+
+**📌 Versão**: 2.0 (Refactored Edition)
+**📅 Última atualização**: Março 2026
