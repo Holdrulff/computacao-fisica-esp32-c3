@@ -13,8 +13,8 @@ LED_INVERTED = True  # True for active-low LEDs (common in ESP32 boards)
 DISPLAY_I2C_SCL_PIN = 6
 DISPLAY_I2C_SDA_PIN = 5
 DISPLAY_I2C_ADDR = 0x3C
-DISPLAY_WIDTH = 128   # Landscape mode (standard)
-DISPLAY_HEIGHT = 64
+DISPLAY_WIDTH = 72    # 0.42" OLED display
+DISPLAY_HEIGHT = 40
 
 # Network
 WIFI_CONNECT_TIMEOUT_SEC = 40
@@ -25,7 +25,16 @@ WIFI_MAX_RETRIES = 20
 HTTP_PORT = 5000
 HTTP_HOST = '0.0.0.0'
 
-# Display (landscape mode: 128x64)
-DISPLAY_CHARS_PER_LINE = 21   # ~128px / 6px per char
-DISPLAY_LINE_HEIGHT = 10      # Extra spacing between lines
+# Display (72x40 - 0.42" OLED)
+DISPLAY_CHARS_PER_LINE = 12   # ~72px / 6px per char
+DISPLAY_LINE_HEIGHT = 10      # Line spacing
 DISPLAY_START_Y = 0           # Start from top
+
+# Logging
+LOG_LEVEL = 'INFO'  # Can be set to 'ERROR' in production to skip debug/info formatting
+
+# Pre-intern common strings to reduce allocations
+HTTP_STATUS_OK = "OK"
+HTTP_STATUS_ERROR = "Error"
+CONTENT_TYPE_JSON = "application/json"
+CONTENT_TYPE_HTML = "text/html"

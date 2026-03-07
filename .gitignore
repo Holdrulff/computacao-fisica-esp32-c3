@@ -8,4 +8,6 @@ src/.env
 # Keep .env.example as template
 !src/.env.example
 
-micropython-dotenv
+micropython-dotenv.claude/
+
+nota.txt

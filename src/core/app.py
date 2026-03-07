@@ -2,8 +2,10 @@
 Main application class that orchestrates all components.
 """
 import asyncio
+import gc
 from core.logger import get_logger, LogLevel
 from hardware.led import LED
+from hardware.display import Display
 from net_manager.wifi_manager import WiFiManager
 from web.server import WebServer
 import constants
@@ -40,11 +42,18 @@ class Application:
         self.web_server = None
 
     def _initialize_hardware(self):
-        """Initialize hardware components (LED)."""
+        """Initialize hardware components (LED and Display)."""
         self.logger.info("Initializing hardware...")
 
         # Initialize LED with inverted flag for active-low hardware
         self.led = LED(constants.LED_PIN, inverted=constants.LED_INVERTED)
+
+        # Initialize Display
+        self.display = Display(
+            constants.DISPLAY_I2C_SCL_PIN,
+            constants.DISPLAY_I2C_SDA_PIN,
+            constants.DISPLAY_I2C_ADDR
+        )
 
         self.logger.info("Hardware initialization complete")
 
@@ -68,6 +77,10 @@ class Application:
 
         if connected:
             self.logger.info("Network initialization complete")
+            # Show status on display
+            if self.display and self.display.is_available:
+                ip = self.wifi_manager.get_ip_address()
+                self.display.show_status(self.hostname, ip, constants.HTTP_PORT)
         else:
             self.logger.warning("Network initialization incomplete (may connect later)")
 
@@ -79,7 +92,7 @@ class Application:
 
         self.web_server = WebServer(
             self.led,
-            None,  # Display removed
+            self.display,
             self.wifi_manager,
             self.hostname
         )
@@ -146,5 +159,14 @@ class Application:
 
         Performs setup and then runs the async event loop.
         """
+        # Trigger GC before starting server
+        gc.collect()
+        try:
+            mem_free = gc.mem_free()
+            self.logger.info(f"Memory before start: {mem_free} bytes free")
+        except AttributeError:
+            # gc.mem_free() not available on all platforms
+            self.logger.info("Memory monitoring not available on this platform")
+
         self.setup()
         asyncio.run(self.run())

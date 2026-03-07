@@ -53,6 +53,12 @@ class WebServer:
         self.app.get('/snake/leaderboard')(self.handlers.snake_leaderboard)
         self.app.post('/snake/score')(self.handlers.snake_add_score)
 
+        # Tic-Tac-Toe game
+        self.app.get('/game/tictactoe')(self.handlers.tictactoe_game_state)
+        self.app.post('/game/tictactoe/move')(self.handlers.tictactoe_make_move)
+        self.app.post('/game/tictactoe/reset')(self.handlers.tictactoe_reset)
+        self.app.post('/game/tictactoe/computer-move')(self.handlers.tictactoe_computer_move)
+
         self.logger.info("Routes configured successfully")
 
     async def start(self):

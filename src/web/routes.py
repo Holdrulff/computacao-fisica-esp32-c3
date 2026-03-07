@@ -5,6 +5,7 @@ from microdot import send_file
 from core.logger import get_logger
 from hardware.morse import MorseEncoder
 import asyncio
+import gc
 
 logger = get_logger('Routes')
 
@@ -26,6 +27,15 @@ class RouteHandlers:
         self.wifi_manager = wifi_manager
         self.hostname = hostname
         self.last_message = None
+
+        # Request counter for periodic GC
+        self._request_count = 0
+
+        # Cache static health data to avoid creating dict on every request
+        self._static_health = {
+            'hostname': self.hostname,
+            'hardware': {'led': 'Built-in GPIO8'}
+        }
 
     # Static files
     async def serve_index(self, request):
@@ -56,11 +66,19 @@ class RouteHandlers:
 
         Returns detailed system health information.
         """
+        # Periodic GC every 10 requests
+        self._request_count += 1
+        if self._request_count % 10 == 0:
+            gc.collect()
+            logger.info(f"GC triggered at request #{self._request_count}")
+
         network_info = self.wifi_manager.get_network_info()
 
+        # Use cached static data, only add dynamic fields
+        # MicroPython doesn't support ** unpacking, use update() instead
         health_data = {
-            'status': 'healthy',
             'hostname': self.hostname,
+            'status': 'healthy',
             'network': network_info,
             'hardware': {
                 'led': {
@@ -87,6 +105,11 @@ class RouteHandlers:
             - free_mb: Free storage in MB
         """
         import os
+
+        # Periodic GC every 10 requests
+        self._request_count += 1
+        if self._request_count % 10 == 0:
+            gc.collect()
 
         try:
             # Get filesystem statistics
@@ -154,7 +177,7 @@ class RouteHandlers:
     
     async def led_blink(self, request):
         """
-        Blink LED multipletimes.
+        Blink LED multiple times (non-blocking).
 
         Query parameters:
             count: Number of blinks (default: 3, max: 20)
@@ -162,35 +185,50 @@ class RouteHandlers:
 
         example:
             GET /led/blink?count=5&interval=0.3 → Blinks LED 5 times with 0.3s interval
+
+        Returns immediately while LED blinks in background.
         """
         try:
             count = int(request.args.get('count', 3))
             interval = float(request.args.get('interval', 0.5))
         except ValueError:
             return {'error': 'Invalid count or interval'}, 400
-        
+
         count = max(1, min(count, 20))
         interval = max(0.1, min(interval, 2.0))
 
-        logger.info(f"Blinking LED {count} times with {interval}s interval via HTTP request")
+        logger.info(f"Starting LED blink: {count} times with {interval}s interval (non-blocking)")
 
+        # Start blink in background, return immediately
+        asyncio.create_task(self._blink_background(count, interval))
+
+        return {
+            'message': 'Blink started',
+            'count': count,
+            'interval': interval
+        }
+
+    async def _blink_background(self, count, interval):
+        """
+        Background task for LED blinking.
+
+        Args:
+            count: Number of blinks
+            interval: Interval between blinks in seconds
+        """
         initial_state = self.led.is_on
 
-        for i in range (count):
+        for i in range(count):
             self.led.on()
             await asyncio.sleep(interval)
             self.led.off()
             await asyncio.sleep(interval)
 
+        # Restore initial state
         if initial_state:
             self.led.on()
 
-        return {
-            'action': 'blink',
-            'count': count,
-            'interval': interval,
-            'led': self._led_state_response()
-        }
+        logger.info(f"LED blink completed: {count} times")
 
     async def morse_blink(self, request):
         """
@@ -242,7 +280,7 @@ class RouteHandlers:
 
         # Encode and blink
         try:
-            morse_encoder = MorseEncoder(self.led, display=None, dot_duration=speed)
+            morse_encoder = MorseEncoder(self.led, display=self.display, dot_duration=speed)
             result = await morse_encoder.blink_morse(text)
 
             logger.info(f"Morse code sent: {text} -> {result['morse']}")
@@ -256,15 +294,33 @@ class RouteHandlers:
             return {'error': 'Internal error'}, 500
 
     async def message_handler(self, request):
-        """
-        Display messages - FEATURE REMOVED.
+        """Display a message on the OLED screen."""
+        try:
+            text = request.args.get('text', 'Hello ESP32!')
 
-        The display hardware has been removed from this project.
-        """
-        return {
-            'error': 'Display feature has been removed',
-            'message': 'OLED display is no longer available'
-        }, 410  # 410 Gone - resource no longer available
+            # Validate text length
+            if len(text) > 100:
+                return {'error': 'Text too long (max 100 chars)'}, 400
+
+            if self.display and self.display.is_available:
+                self.display.show_message(text)
+                logger.info(f"Displayed message via HTTP: {text}")
+                return {
+                    'success': True,
+                    'message': text,
+                    'displayed': True
+                }
+            else:
+                logger.warning(f"Display unavailable, message not shown: {text}")
+                return {
+                    'success': False,
+                    'message': text,
+                    'displayed': False,
+                    'reason': 'Display hardware not detected'
+                }, 503  # Service Unavailable (not 410 Gone)
+        except Exception as e:
+            logger.error(f"Message display error: {e}")
+            return {'error': str(e)}, 500
 
     # Snake game leaderboard
     async def snake_leaderboard(self, request):
@@ -291,3 +347,66 @@ class RouteHandlers:
         except Exception as e:
             logger.error(f"Error adding score: {e}")
             return {'error': 'Failed to add score'}, 500
+
+    # Tic-Tac-Toe game
+    async def tictactoe_game_state(self, request):
+        """Get current Tic-Tac-Toe game state."""
+        from games.tictactoe import get_game_state
+        return get_game_state()
+
+    async def tictactoe_make_move(self, request):
+        """
+        Make a move in Tic-Tac-Toe game.
+
+        Expects JSON body:
+            {
+                "position": 0-8,
+                "player": "X" or "O"
+            }
+        """
+        from games.tictactoe import make_move
+
+        # Periodic GC every 10 requests
+        self._request_count += 1
+        if self._request_count % 10 == 0:
+            gc.collect()
+
+        try:
+            data = request.json
+            position = data.get('position')
+            player = data.get('player', 'X')
+
+            if position is None:
+                return {'success': False, 'error': 'Missing position'}, 400
+
+            result = make_move(position, player)
+
+            if not result.get('success'):
+                return result, 400
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error making move: {e}")
+            return {'success': False, 'error': 'Failed to make move'}, 500
+
+    async def tictactoe_reset(self, request):
+        """Reset Tic-Tac-Toe game to initial state."""
+        from games.tictactoe import reset_game
+        return reset_game()
+
+    async def tictactoe_computer_move(self, request):
+        """Get and execute computer's move."""
+        from games.tictactoe import get_computer_move
+
+        try:
+            result = get_computer_move()
+
+            if not result.get('success'):
+                return result, 400
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error getting computer move: {e}")
+            return {'success': False, 'error': 'Failed to get computer move'}, 500

@@ -95,9 +95,20 @@ class MorseEncoder:
         await asyncio.sleep(self.dash_duration)
         self.led.off()
 
+    def _update_display(self, text):
+        """
+        Update display with current progress - OPTIMIZED with throttling.
+
+        Args:
+            text: Text to display
+        """
+        if self.display and self.display.is_available:
+            self.display.show_message(text)
+            self.logger.debug(f"Display updated: {text}")
+
     async def blink_morse(self, text: str) -> dict:
         """
-        Blink LED in Morse code pattern.
+        Blink LED in Morse code pattern - OPTIMIZED with display throttling.
 
         Args:
             text: Text to encode and blink
@@ -126,6 +137,10 @@ class MorseEncoder:
         text_upper = text.upper().strip()
         char_index = 0
 
+        # Display buffer - build string incrementally, update every N chars
+        display_buffer = []
+        UPDATE_INTERVAL = 3  # Update display every 3 characters (reduces I2C calls)
+
         # Blink the pattern
         words = morse.split('  ')  # Double space = word separator
 
@@ -133,12 +148,13 @@ class MorseEncoder:
             letters = word.split(' ')  # Single space = letter separator
 
             for letter_idx, letter in enumerate(letters):
-                # Update display to show progress
-                if self.display and self.display.is_available:
-                    # Show text up to current character
-                    display_text = text_upper[:char_index + 1]
-                    self.display.show_message(display_text)
-                    self.logger.debug(f"Display updated: {display_text}")
+                # Add current character to buffer
+                if char_index < len(text_upper):
+                    display_buffer.append(text_upper[char_index])
+
+                # Throttled display update - every N characters instead of every character
+                if len(display_buffer) % UPDATE_INTERVAL == 0:
+                    self._update_display(''.join(display_buffer))
 
                 # Blink each symbol in the letter
                 for symbol_idx, symbol in enumerate(letter):
@@ -161,7 +177,13 @@ class MorseEncoder:
             # Gap between words (space character)
             if word_idx < len(words) - 1:
                 await asyncio.sleep(self.word_gap)
+                if char_index < len(text_upper):
+                    display_buffer.append(' ')
                 char_index += 1  # Account for space in original text
+
+        # Final display update (show complete text)
+        if display_buffer:
+            self._update_display(''.join(display_buffer))
 
         # Restore initial LED state
         if initial_state:

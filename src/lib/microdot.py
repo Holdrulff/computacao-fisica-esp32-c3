@@ -57,6 +57,7 @@ MUTED_SOCKET_ERRORS = [
     32,  # Broken pipe
     54,  # Connection reset by peer
     104,  # Connection reset by peer
+    113,  # ECONNABORTED - Software caused connection abort
     128,  # Operation on closed socket
 ]
 

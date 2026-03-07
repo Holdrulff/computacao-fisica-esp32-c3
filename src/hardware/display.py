@@ -81,6 +81,24 @@ class Display:
         except Exception as e:
             self.logger.error(f"Failed to show text: {e}")
 
+    def _wrap_text(self, text):
+        """
+        Wrap text into chunks - OPTIMIZED with generator (O(1) memory).
+
+        Yields chunks of text that fit within DISPLAY_CHARS_PER_LINE.
+        """
+        lines = text.split('\n')
+        chars_per_line = constants.DISPLAY_CHARS_PER_LINE
+
+        for line in lines:
+            line_len = len(line)
+            if line_len <= chars_per_line:
+                yield line
+            else:
+                # Yield chunks without creating intermediate list
+                for i in range(0, line_len, chars_per_line):
+                    yield line[i:i + chars_per_line]
+
     def show_message(self, message: str):
         """
         Display multi-line message with automatic text wrapping.
@@ -95,34 +113,21 @@ class Display:
         try:
             self.clear()
             line_num = 0
-
-            # Split by newlines first, then wrap long lines
-            lines = message.split('\n')
             max_lines = constants.DISPLAY_HEIGHT // constants.DISPLAY_LINE_HEIGHT
 
-            for line in lines:
+            # Use generator for memory-efficient text wrapping
+            for chunk in self._wrap_text(message):
                 if line_num >= max_lines:
                     break
 
-                # Break long lines into chunks
-                if len(line) <= constants.DISPLAY_CHARS_PER_LINE:
-                    chunks = [line]
-                else:
-                    chunks = [line[i:i + constants.DISPLAY_CHARS_PER_LINE]
-                             for i in range(0, len(line), constants.DISPLAY_CHARS_PER_LINE)]
+                y_pos = constants.DISPLAY_START_Y + (line_num * constants.DISPLAY_LINE_HEIGHT)
 
-                for chunk in chunks:
-                    if line_num >= max_lines:
-                        break
+                # Center text horizontally
+                text_width = len(chunk) * 6  # Approximate char width
+                x_pos = max(0, (constants.DISPLAY_WIDTH - text_width) // 2)
 
-                    y_pos = constants.DISPLAY_START_Y + (line_num * constants.DISPLAY_LINE_HEIGHT)
-
-                    # Center text horizontally
-                    text_width = len(chunk) * 6  # Approximate char width
-                    x_pos = max(0, (constants.DISPLAY_WIDTH - text_width) // 2)
-
-                    self._driver.text(chunk, x_pos, y_pos, 1)
-                    line_num += 1
+                self._driver.text(chunk, x_pos, y_pos, 1)
+                line_num += 1
 
             self._driver.show()
             self.logger.debug(f"Displayed message: {message}")

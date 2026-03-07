@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic-Tac-Toe - ESP32</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+            background: #fffef0;
+            padding: 16px;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            background: #f44336;
+            border: 5px solid #000;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 8px 8px 0 #000;
+            transform: rotate(-1deg);
+            width: 100%;
+            max-width: 700px;
+        }
+
+        header h1 {
+            color: #fff;
+            font-size: 28px;
+            text-transform: uppercase;
+            text-shadow: 3px 3px 0 #000;
+            transform: rotate(1deg);
+            text-align: center;
+        }
+
+        .container {
+            max-width: 700px;
+            width: 100%;
+        }
+
+        .game-container {
+            background: #fff;
+            border: 5px solid #000;
+            padding: 30px;
+            box-shadow: 8px 8px 0 #000;
+            margin-bottom: 20px;
+        }
+
+        .status-panel {
+            background: #ffeb3b;
+            border: 5px solid #000;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 4px 4px 0 #000;
+        }
+
+        .status-text {
+            font-size: 20px;
+            text-transform: uppercase;
+            color: #000;
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 30px;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cell {
+            aspect-ratio: 1;
+            min-height: 120px;
+            background: #fff;
+            border: 5px solid #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 60px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 4px 4px 0 #000;
+            user-select: none;
+        }
+
+        .cell:hover:not(.filled) {
+            background: #fffef0;
+            transform: translate(-2px, -2px);
+            box-shadow: 6px 6px 0 #000;
+        }
+
+        .cell:active:not(.filled) {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 #000;
+        }
+
+        .cell.filled {
+            cursor: not-allowed;
+        }
+
+        .cell.x {
+            color: #2196f3;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        .cell.o {
+            color: #f44336;
+            text-shadow: 2px 2px 0 #000;
+        }
+
+        .cell.winning {
+            background: #4caf50;
+            animation: pulse 0.5s ease-in-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-direction: column;
+        }
+
+        button {
+            width: 100%;
+            padding: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            border: 5px solid #000;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            font-family: 'Arial Black', sans-serif;
+        }
+
+        .btn-new-game {
+            background: #f44336;
+            color: #fff;
+        }
+
+        .btn-home {
+            background: #000;
+            color: #fff;
+            text-decoration: none;
+            display: block;
+            text-align: center;
+        }
+
+        button:hover, .btn-home:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 6px 6px 0 #000;
+        }
+
+        button:active, .btn-home:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 #000;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .info-box {
+            background: #00bcd4;
+            border: 5px solid #000;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 4px 4px 0 #000;
+        }
+
+        .info-box h3 {
+            color: #fff;
+            text-shadow: 2px 2px 0 #000;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .info-box p {
+            color: #000;
+            background: #fff;
+            padding: 10px;
+            border: 3px solid #000;
+            font-size: 14px;
+            font-family: Arial, sans-serif;
+            font-weight: normal;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 18px;
+        }
+
+        @media (min-width: 640px) {
+            header h1 {
+                font-size: 36px;
+            }
+
+            body {
+                padding: 24px;
+            }
+
+            .game-board {
+                gap: 15px;
+            }
+
+            .cell {
+                min-height: 150px;
+                font-size: 80px;
+            }
+
+            .controls {
+                flex-direction: row;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            header {
+                padding: 32px;
+            }
+
+            header h1 {
+                font-size: 48px;
+            }
+
+            .status-text {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>⭕ JOGO DA VELHA ❌</h1>
+    </header>
+
+    <div class="container">
+        <div class="game-container">
+            <div class="status-panel">
+                <div class="status-text" id="statusText">Carregando...</div>
+            </div>
+
+            <div class="game-board" id="gameBoard">
+                <div class="cell" data-index="0"></div>
+                <div class="cell" data-index="1"></div>
+                <div class="cell" data-index="2"></div>
+                <div class="cell" data-index="3"></div>
+                <div class="cell" data-index="4"></div>
+                <div class="cell" data-index="5"></div>
+                <div class="cell" data-index="6"></div>
+                <div class="cell" data-index="7"></div>
+                <div class="cell" data-index="8"></div>
+            </div>
+
+            <div class="controls">
+                <button class="btn-new-game" onclick="resetGame()">Novo Jogo</button>
+                <a href="/" class="btn-home">Inicio</a>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>COMO JOGAR</h3>
+            <p>
+                Voce e X (azul), o computador e O (vermelho).
+                Clique em uma celula vazia para fazer sua jogada.
+                O primeiro a conseguir 3 em linha (horizontal, vertical ou diagonal) vence!
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let board = ['', '', '', '', '', '', '', '', ''];
+        let currentPlayer = 'X';
+        let gameActive = true;
+        let isProcessing = false;
+
+        // Fetch with timeout to prevent hanging requests
+        function fetchWithTimeout(url, options = {}, timeout = 5000) {
+            return Promise.race([
+                fetch(url, options),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Request timeout')), timeout)
+                )
+            ]);
+        }
+
+        // Win conditions
+        const WIN_CONDITIONS = [
+            [0, 1, 2], // Top row
+            [3, 4, 5], // Middle row
+            [6, 7, 8], // Bottom row
+            [0, 3, 6], // Left column
+            [1, 4, 7], // Middle column
+            [2, 5, 8], // Right column
+            [0, 4, 8], // Diagonal \
+            [2, 4, 6]  // Diagonal /
+        ];
+
+        // Initialize game
+        async function init() {
+            await loadGameState();
+            setupEventListeners();
+        }
+
+        function setupEventListeners() {
+            // Use event delegation instead of individual listeners
+            // This reduces memory from 9 listeners to 1
+            const gameBoard = document.getElementById('gameBoard');
+            gameBoard.addEventListener('click', handleBoardClick);
+        }
+
+        function handleBoardClick(event) {
+            // Check if clicked element is a cell
+            const cell = event.target.closest('.cell');
+            if (!cell) return;
+
+            handleCellClick(event, cell);
+        }
+
+        async function loadGameState() {
+            try {
+                const response = await fetchWithTimeout('/game/tictactoe');
+                const data = await response.json();
+
+                board = data.board;
+                currentPlayer = data.current_player;
+                gameActive = data.game_active;
+
+                updateBoard();
+                updateStatus();
+
+                // Check if there's a winner
+                if (!gameActive && data.winner) {
+                    highlightWinningLine(data.winning_line);
+                }
+            } catch (error) {
+                console.error('Error loading game state:', error);
+                document.getElementById('statusText').textContent = 'Erro ao carregar jogo';
+            }
+        }
+
+        async function handleCellClick(event, cellElement) {
+            if (isProcessing) return;
+
+            const cell = cellElement || event.target;
+            const index = parseInt(cell.getAttribute('data-index'));
+
+            // Check if cell is already filled or game is over
+            if (board[index] !== '' || !gameActive) {
+                return;
+            }
+
+            // Check if it's player's turn
+            if (currentPlayer !== 'X') {
+                return;
+            }
+
+            isProcessing = true;
+
+            try {
+                // Make player move
+                const response = await fetchWithTimeout('/game/tictactoe/move', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        position: index,
+                        player: 'X'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Invalid move');
+                }
+
+                const data = await response.json();
+                board = data.board;
+                currentPlayer = data.current_player;
+                gameActive = data.game_active;
+
+                updateBoard();
+                updateStatus();
+
+                // Check if game is over after player move
+                if (!gameActive) {
+                    if (data.winner) {
+                        highlightWinningLine(data.winning_line);
+                    }
+                    isProcessing = false;
+                    return;
+                }
+
+                // Computer's turn
+                await makeComputerMove();
+
+            } catch (error) {
+                console.error('Error making move:', error);
+                alert('Jogada invalida. Tente novamente.');
+                isProcessing = false;
+            } finally {
+                isProcessing = false;
+            }
+        }
+
+        async function makeComputerMove() {
+            // Small delay for better UX
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            try {
+                const response = await fetchWithTimeout('/game/tictactoe/computer-move', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Computer move failed');
+                }
+
+                const data = await response.json();
+                board = data.board;
+                currentPlayer = data.current_player;
+                gameActive = data.game_active;
+
+                updateBoard();
+                updateStatus();
+
+                // Check if game is over after computer move
+                if (!gameActive && data.winner) {
+                    highlightWinningLine(data.winning_line);
+                }
+            } catch (error) {
+                console.error('Error with computer move:', error);
+                isProcessing = false;
+            }
+        }
+
+        function updateBoard() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach((cell, index) => {
+                const value = board[index];
+                cell.textContent = value;
+                cell.className = 'cell';
+
+                if (value !== '') {
+                    cell.classList.add('filled');
+                    cell.classList.add(value.toLowerCase());
+                }
+            });
+        }
+
+        function updateStatus() {
+            const statusText = document.getElementById('statusText');
+
+            if (!gameActive) {
+                // Game over - check for winner or draw
+                const winner = checkWinner();
+                if (winner === 'X') {
+                    statusText.textContent = 'Voce Venceu!';
+                    statusText.style.color = '#2196f3';
+                } else if (winner === 'O') {
+                    statusText.textContent = 'Computador Venceu!';
+                    statusText.style.color = '#f44336';
+                } else {
+                    statusText.textContent = 'Empate!';
+                    statusText.style.color = '#000';
+                }
+            } else {
+                // Game active
+                if (currentPlayer === 'X') {
+                    statusText.textContent = 'Sua Vez (X)';
+                    statusText.style.color = '#2196f3';
+                } else {
+                    statusText.textContent = 'Vez do Computador (O)';
+                    statusText.style.color = '#f44336';
+                }
+            }
+        }
+
+        function checkWinner() {
+            for (let condition of WIN_CONDITIONS) {
+                const [a, b, c] = condition;
+                if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+                    return board[a];
+                }
+            }
+
+            // Check for draw
+            if (board.every(cell => cell !== '')) {
+                return 'draw';
+            }
+
+            return null;
+        }
+
+        function highlightWinningLine(winningLine) {
+            if (!winningLine) return;
+
+            const cells = document.querySelectorAll('.cell');
+            winningLine.forEach(index => {
+                cells[index].classList.add('winning');
+            });
+        }
+
+        async function resetGame() {
+            if (isProcessing) return;
+
+            isProcessing = true;
+
+            try {
+                const response = await fetchWithTimeout('/game/tictactoe/reset', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Reset failed');
+                }
+
+                const data = await response.json();
+                board = data.board;
+                currentPlayer = data.current_player;
+                gameActive = data.game_active;
+
+                // Clear winning highlights
+                const cells = document.querySelectorAll('.cell');
+                cells.forEach(cell => {
+                    cell.classList.remove('winning');
+                });
+
+                updateBoard();
+                updateStatus();
+            } catch (error) {
+                console.error('Error resetting game:', error);
+                alert('Erro ao reiniciar jogo. Recarregue a pagina.');
+            } finally {
+                isProcessing = false;
+            }
+        }
+
+        // Cleanup handler to prevent memory leaks
+        function cleanup() {
+            // Reset processing flag to prevent stuck state
+            isProcessing = false;
+
+            // Remove event delegation listener
+            const gameBoard = document.getElementById('gameBoard');
+            if (gameBoard) {
+                gameBoard.removeEventListener('click', handleBoardClick);
+            }
+        }
+
+        // Add cleanup on page unload
+        window.addEventListener('beforeunload', cleanup);
+
+        // Initialize on page load
+        window.onload = init;
+    </script>
+</body>
+</html>
