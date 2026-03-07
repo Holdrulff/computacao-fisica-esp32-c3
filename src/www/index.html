@@ -1,36 +1,330 @@
 <!doctype html>
-<html>
-  <head>
-    <title>Static File Serving Demo</title>
+<html lang="pt-BR">
+<head>
     <meta charset="UTF-8">
-  </head>
-  <body>
-    <h1>Static File Serving Demo</h1>
-    <img src="www/logo.png" alt="logo">
-    
-    <br><br>Este é um servidor web hospedado em uma placa de 
-    desenvolvimento ESP32 supermini com display OLED embutido.
-    <br><br>Mais informação sobre o projeto básico em 
-    https://gitdub.com/FNakano/ProjetoBasico-CFA
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32-C3 WebServer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-<br>As rotas que podem ser acessadas no servidor são:
+        body {
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+            background: #fffef0;
+            padding: 16px;
+            line-height: 1.6;
+        }
 
-<table>
-<tr><th> rota </th><th> efeito no navegador </th><th> efeito no dispositivo </th></tr>
-<tr><td> <a href="/"> / </a> </td><td> mostra a página index.html </td><td> - </td></tr>
-<tr><td> <a href="/hello"> /hello </a></td><td> mostra o texto 'hello from dv01.local' </td><td> - </td></tr>
-<tr><td> <a href="/storage"> /storage </a></td><td> mostra JSON com informações de armazenamento (total, usado, livre em MB e bytes, porcentagem usada) </td><td> - </td></tr>
-<tr><td> <a href="/led"> /led </a></td><td> mostra o texto on caso o LED esteja apagado, off caso o LED esteja aceso </td><td> - </td></tr>
-<tr><td> <a href="/led/on"> /led/on </a></td><td> mostra o texto on </td><td> apaga o LED </td></tr>
-<tr><td> <a href="/led/off"> /led/off </a></td><td> mostra o texto off </td><td> acende o LED </td></tr>
-<tr><td> <a href="/led/blink?count=3&interval=0.5"> /led/blink?count=3&interval=0.5 </a></td><td> mostra JSON com ação, contagem e intervalo </td><td> pisca o LED 3 vezes com intervalo de 0.5s (parâmetros: count=1-20, interval=0.1-2.0) </td></tr>
-<tr><td> <a href="/morse?text=SOS"> /morse?text=SOS </a></td><td> mostra JSON com texto, código Morse e duração </td><td> pisca o LED em código Morse e mostra cada letra progressivamente no display conforme é transmitida (parâmetros: text=1-20 caracteres obrigatório, speed=0.1-0.5 segundos opcional) </td></tr>
-<tr><td> <a href="/message"> /message </a></td><td> mostra o texto que está sendo mostrado no display </td><td> - </td></tr>
-<tr><td> <a href="/message?text='xxx'"> /message?text="xxx" </a></td><td> mostra o texto passado como argumento em 'text' </td><td> mostra no display o texto passado como argumento em 'text' </td></tr>
-<tr><td> <a href="/www/webrepl/webrepl.html"> /www/webrepl/webrepl.html </a></td><td> Mostra a página para acesso a interface de comando (REPL) </td><td> para conectar, substituir o número da porta de 5000 para 8266 senha: star </td></tr>
-</table>
+        header {
+            background: #ff6b35;
+            border: 5px solid #000;
+            padding: 24px;
+            margin: 0 auto 24px;
+            max-width: 900px;
+            box-shadow: 8px 8px 0 #000;
+            transform: rotate(-1deg);
+        }
 
-<br><br>O aplicativo é iniciado com o comando `import startsystem` digitado no REPL (tdonny).
+        header h1 {
+            color: #fff;
+            font-size: 28px;
+            text-transform: uppercase;
+            text-shadow: 3px 3px 0 #000;
+            transform: rotate(1deg);
+        }
 
-  </body>
+        .subtitle {
+            color: #000;
+            background: #ffeb3b;
+            padding: 8px 12px;
+            display: inline-block;
+            border: 3px solid #000;
+            margin-top: 12px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            background: #fff;
+            border: 5px solid #000;
+            padding: 20px;
+            box-shadow: 6px 6px 0 #000;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 8px 8px 0 #000;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 4px solid #000;
+        }
+
+        .card-icon {
+            font-size: 36px;
+            line-height: 1;
+        }
+
+        .card-title {
+            font-size: 22px;
+            text-transform: uppercase;
+            color: #000;
+        }
+
+        .card.led { background: #4caf50; }
+        .card.display { background: #00bcd4; }
+        .card.games { background: #ff4081; }
+        .card.system { background: #ffeb3b; }
+
+        .link-list {
+            list-style: none;
+        }
+
+        .link-item {
+            margin-bottom: 12px;
+        }
+
+        .link-item a {
+            display: block;
+            background: #fff;
+            color: #000;
+            text-decoration: none;
+            padding: 12px 16px;
+            border: 4px solid #000;
+            font-weight: bold;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .link-item a:hover {
+            background: #000;
+            color: #fff;
+            transform: translate(2px, 2px);
+        }
+
+        .link-item a:active {
+            transform: translate(4px, 4px);
+        }
+
+        .description {
+            font-size: 12px;
+            font-family: Arial, sans-serif;
+            margin-top: 6px;
+            padding-left: 8px;
+            font-weight: normal;
+        }
+
+        .big-button {
+            display: block;
+            background: #9c27b0;
+            color: #fff;
+            text-decoration: none;
+            padding: 20px;
+            border: 5px solid #000;
+            font-size: 24px;
+            text-align: center;
+            text-transform: uppercase;
+            box-shadow: 6px 6px 0 #000;
+            margin-bottom: 20px;
+            transition: all 0.2s;
+            font-weight: bold;
+        }
+
+        .big-button:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 8px 8px 0 #000;
+        }
+
+        .big-button:active {
+            transform: translate(2px, 2px);
+            box-shadow: 4px 4px 0 #000;
+        }
+
+        footer {
+            margin-top: 40px;
+            padding: 20px;
+            background: #000;
+            color: #fff;
+            border: 5px solid #000;
+            text-align: center;
+            font-size: 12px;
+        }
+
+        footer a {
+            color: #ffeb3b;
+            font-weight: bold;
+        }
+
+        @media (min-width: 640px) {
+            body {
+                padding: 24px;
+            }
+
+            header h1 {
+                font-size: 36px;
+            }
+
+            .grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .card-title {
+                font-size: 24px;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            body {
+                padding: 32px;
+            }
+
+            header {
+                padding: 32px;
+            }
+
+            header h1 {
+                font-size: 48px;
+            }
+
+            .grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>ESP32-C3 WEBSERVER</h1>
+        <div class="subtitle">MicroPython + OLED Display + IoT Power</div>
+    </header>
+
+    <div class="container">
+        <a href="/www/snake.html" class="big-button">🐍 JOGAR SNAKE →</a>
+        <a href="/www/tictactoe.html" class="big-button" style="background: #f44336;">⭕ JOGO DA VELHA →</a>
+
+        <div class="grid">
+            <div class="card led">
+                <div class="card-header">
+                    <span class="card-icon">💡</span>
+                    <h2 class="card-title">LED Control</h2>
+                </div>
+                <ul class="link-list">
+                    <li class="link-item">
+                        <a href="/led/on">LED ON</a>
+                        <div class="description">Acende o LED da placa</div>
+                    </li>
+                    <li class="link-item">
+                        <a href="/led/off">LED OFF</a>
+                        <div class="description">Apaga o LED da placa</div>
+                    </li>
+                    <li class="link-item">
+                        <a href="/led/blink?count=5&interval=0.3">BLINK</a>
+                        <div class="description">Pisca LED 5x (count=1-20, interval=0.1-2.0s)</div>
+                    </li>
+                    <li class="link-item">
+                        <a href="/morse?text=SOS">MORSE CODE</a>
+                        <div class="description">LED em código Morse + Display (text=1-20 chars)</div>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="card display">
+                <div class="card-header">
+                    <span class="card-icon">📺</span>
+                    <h2 class="card-title">Display OLED</h2>
+                </div>
+                <ul class="link-list">
+                    <li class="link-item">
+                        <a href="/www/message.html">Message Panel</a>
+                        <div class="description">Interface para enviar mensagens ao display</div>
+                    </li>
+                    <li class="link-item">
+                        <a href="/www/morse.html">Morse Code</a>
+                        <div class="description">Transmitir código Morse via LED + Display</div>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="card games">
+                <div class="card-header">
+                    <span class="card-icon">🎮</span>
+                    <h2 class="card-title">Games</h2>
+                </div>
+                <ul class="link-list">
+                    <li class="link-item">
+                        <a href="/www/snake.html">Snake Game</a>
+                        <div class="description">Cobrinha 30x30 com leaderboard online</div>
+                    </li>
+                    <li class="link-item">
+                        <a href="/snake/leaderboard">Snake Leaderboard</a>
+                        <div class="description">Top 10 melhores pontuações (JSON)</div>
+                    </li>
+                    <li class="link-item">
+                        <a href="/www/tictactoe.html">Tic-Tac-Toe</a>
+                        <div class="description">Jogo da Velha vs IA</div>
+                    </li>
+                    <li class="link-item">
+                        <a href="/game/tictactoe">Game State</a>
+                        <div class="description">Estado do jogo (JSON)</div>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="card system">
+                <div class="card-header">
+                    <span class="card-icon">⚙️</span>
+                    <h2 class="card-title">System Info</h2>
+                </div>
+                <ul class="link-list">
+                    <li class="link-item">
+                        <a href="/hello">Hello</a>
+                        <div class="description">Teste de conexão</div>
+                    </li>
+                    <li class="link-item">
+                        <a href="/storage">Storage Info</a>
+                        <div class="description">Armazenamento (total, usado, livre)</div>
+                    </li>
+                    <li class="link-item">
+                        <a href="#" onclick="openWebREPL(); return false;">WebREPL</a>
+                        <div class="description">Console Python (porta 8266, senha: star) - Desabilitado por padrão. Habilite em constants.py</div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <footer>
+            <p>ESP32-C3 Supermini + MicroPython v1.27.0</p>
+            <p>Projeto: <a href="https://github.com/FNakano/ProjetoBasico-CFA" target="_blank">github.com/FNakano/ProjetoBasico-CFA</a></p>
+        </footer>
+    </div>
+
+    <script>
+        function openWebREPL() {
+            const currentUrl = new URL(window.location.href);
+            currentUrl.port = '8266';
+            currentUrl.pathname = '/www/webrepl/webrepl.html';
+            window.open(currentUrl.toString(), '_blank');
+        }
+    </script>
+</body>
 </html>

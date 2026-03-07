@@ -4,7 +4,6 @@ Main application class that orchestrates all components.
 import asyncio
 from core.logger import get_logger, LogLevel
 from hardware.led import LED
-from hardware.display import Display
 from net_manager.wifi_manager import WiFiManager
 from web.server import WebServer
 import constants
@@ -41,18 +40,11 @@ class Application:
         self.web_server = None
 
     def _initialize_hardware(self):
-        """Initialize hardware components (LED and Display)."""
+        """Initialize hardware components (LED)."""
         self.logger.info("Initializing hardware...")
 
         # Initialize LED with inverted flag for active-low hardware
         self.led = LED(constants.LED_PIN, inverted=constants.LED_INVERTED)
-
-        # Initialize Display
-        self.display = Display(
-            constants.DISPLAY_I2C_SCL_PIN,
-            constants.DISPLAY_I2C_SDA_PIN,
-            constants.DISPLAY_I2C_ADDR
-        )
 
         self.logger.info("Hardware initialization complete")
 
@@ -87,22 +79,12 @@ class Application:
 
         self.web_server = WebServer(
             self.led,
-            self.display,
+            None,  # Display removed
             self.wifi_manager,
             self.hostname
         )
 
         self.logger.info("Web server initialization complete")
-
-    def _display_status(self):
-        """Display device status on OLED screen."""
-        if self.display.is_available and self.wifi_manager.is_connected():
-            ip = self.wifi_manager.get_ip_address()
-            self.display.show_status(
-                self.hostname,
-                ip,
-                constants.HTTP_PORT
-            )
 
     def setup(self):
         """
@@ -117,7 +99,6 @@ class Application:
             self._initialize_web_server()
 
             if connected:
-                self._display_status()
                 self.led.off()  # Indicate successful setup
 
             self.logger.info("=== Application Setup Complete ===")

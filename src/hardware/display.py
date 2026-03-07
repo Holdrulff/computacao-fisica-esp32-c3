@@ -86,7 +86,7 @@ class Display:
         Display multi-line message with automatic text wrapping.
 
         Args:
-            message: Message to display (will be wrapped automatically)
+            message: Message to display (supports \\n for line breaks)
         """
         if not self._available:
             self.logger.debug(f"Display unavailable, would show message: {message}")
@@ -95,18 +95,34 @@ class Display:
         try:
             self.clear()
             line_num = 0
-            msg_len = len(message)
 
-            # Break message into chunks that fit display width
-            for i in range(0, msg_len, constants.DISPLAY_CHARS_PER_LINE):
-                chunk = message[i:i + constants.DISPLAY_CHARS_PER_LINE]
-                y_pos = constants.DISPLAY_START_Y + (line_num * constants.DISPLAY_LINE_HEIGHT)
+            # Split by newlines first, then wrap long lines
+            lines = message.split('\n')
+            max_lines = constants.DISPLAY_HEIGHT // constants.DISPLAY_LINE_HEIGHT
 
-                # Center text horizontally (rough centering)
-                x_pos = 27
+            for line in lines:
+                if line_num >= max_lines:
+                    break
 
-                self._driver.text(chunk, x_pos, y_pos, 1)
-                line_num = (line_num + 1) % 5  # Max 5 lines
+                # Break long lines into chunks
+                if len(line) <= constants.DISPLAY_CHARS_PER_LINE:
+                    chunks = [line]
+                else:
+                    chunks = [line[i:i + constants.DISPLAY_CHARS_PER_LINE]
+                             for i in range(0, len(line), constants.DISPLAY_CHARS_PER_LINE)]
+
+                for chunk in chunks:
+                    if line_num >= max_lines:
+                        break
+
+                    y_pos = constants.DISPLAY_START_Y + (line_num * constants.DISPLAY_LINE_HEIGHT)
+
+                    # Center text horizontally
+                    text_width = len(chunk) * 6  # Approximate char width
+                    x_pos = max(0, (constants.DISPLAY_WIDTH - text_width) // 2)
+
+                    self._driver.text(chunk, x_pos, y_pos, 1)
+                    line_num += 1
 
             self._driver.show()
             self.logger.debug(f"Displayed message: {message}")

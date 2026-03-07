@@ -66,9 +66,6 @@ class RouteHandlers:
                 'led': {
                     'available': True,
                     'state': 'on' if self.led.is_on else 'off'
-                },
-                'display': {
-                    'available': self.display.is_available
                 }
             }
         }
@@ -245,7 +242,7 @@ class RouteHandlers:
 
         # Encode and blink
         try:
-            morse_encoder = MorseEncoder(self.led, display=self.display, dot_duration=speed)
+            morse_encoder = MorseEncoder(self.led, display=None, dot_duration=speed)
             result = await morse_encoder.blink_morse(text)
 
             logger.info(f"Morse code sent: {text} -> {result['morse']}")
@@ -260,40 +257,37 @@ class RouteHandlers:
 
     async def message_handler(self, request):
         """
-        Handle display messages - GET or SET.
+        Display messages - FEATURE REMOVED.
 
-        GET without params: Returns current message
-        - GET /message → {"message": "current text"}
-
-        GET/POST with text: Sets new message
-        - GET /message?text=Hello → Sets and displays "Hello"
-        - POST /message with {"text": "Hello"} → Sets and displays "Hello"
-
-        Returns:
-            JSON with message and status
+        The display hardware has been removed from this project.
         """
-        # Try JSON body first (POST), then query param (GET)
-        text = None
+        return {
+            'error': 'Display feature has been removed',
+            'message': 'OLED display is no longer available'
+        }, 410  # 410 Gone - resource no longer available
+
+    # Snake game leaderboard
+    async def snake_leaderboard(self, request):
+        """Get Snake game leaderboard."""
+        from games.snake_leaderboard import get_leaderboard
+        data = get_leaderboard()
+        return data
+
+    async def snake_add_score(self, request):
+        """Add score to Snake leaderboard."""
+        from games.snake_leaderboard import add_score
+
         try:
-            if request.json:
-                text = request.json.get('text')
-        except:
-            pass
+            data = request.json
+            name = data.get('name', 'Anonymous')
+            score = int(data.get('score', 0))
 
-        if text is None:
-            text = request.args.get('text', None)
+            if score < 0:
+                return {'error': 'Invalid score'}, 400
 
-        # If no text parameter, return current message (GET without params)
-        if text is None:
-            return {'message': self.last_message}
+            result = add_score(name, score)
+            return result
 
-        # Set new message
-        self.last_message = text
-
-        if self.display.is_available:
-            self.display.show_message(text)
-            logger.info(f"Displayed message via HTTP: {text}")
-            return {'message': text, 'displayed': True}
-        else:
-            logger.warning(f"Display unavailable, message not shown: {text}")
-            return {'message': text, 'displayed': False, 'reason': 'Display not available'}
+        except Exception as e:
+            logger.error(f"Error adding score: {e}")
+            return {'error': 'Failed to add score'}, 500

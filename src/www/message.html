@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Display Message - ESP32-C3</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial Black', 'Arial Bold', sans-serif;
+            background: #fffef0;
+            padding: 16px;
+            line-height: 1.6;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: #00bcd4;
+            border: 5px solid #000;
+            padding: 24px;
+            margin-bottom: 24px;
+            box-shadow: 8px 8px 0 #000;
+            transform: rotate(-1deg);
+        }
+
+        header h1 {
+            color: #fff;
+            font-size: 28px;
+            text-transform: uppercase;
+            text-shadow: 3px 3px 0 #000;
+            transform: rotate(1deg);
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            flex: 1;
+        }
+
+        .control-panel {
+            background: #fff;
+            border: 5px solid #000;
+            padding: 30px;
+            box-shadow: 8px 8px 0 #000;
+            margin-bottom: 20px;
+        }
+
+        .display-preview {
+            background: #000;
+            color: #00ff00;
+            border: 5px solid #000;
+            padding: 20px;
+            min-height: 150px;
+            margin-bottom: 30px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .input-group textarea {
+            width: 100%;
+            padding: 15px;
+            border: 4px solid #000;
+            font-size: 16px;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .char-counter {
+            text-align: right;
+            font-size: 12px;
+            margin-top: 5px;
+            color: #666;
+        }
+
+        button {
+            width: 100%;
+            padding: 20px;
+            font-size: 18px;
+            font-weight: bold;
+            border: 5px solid #000;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            font-family: 'Arial Black', sans-serif;
+            background: #00bcd4;
+            color: #fff;
+            margin-bottom: 15px;
+        }
+
+        button:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 6px 6px 0 #000;
+        }
+
+        button:active {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 #000;
+        }
+
+        .btn-clear {
+            background: #f44336;
+        }
+
+        .quick-messages {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .quick-btn {
+            padding: 12px;
+            font-size: 14px;
+            background: #ffeb3b;
+            color: #000;
+        }
+
+        .back-button {
+            display: block;
+            background: #000;
+            color: #fff;
+            text-decoration: none;
+            padding: 15px;
+            border: 5px solid #000;
+            text-align: center;
+            font-size: 16px;
+            text-transform: uppercase;
+            transition: all 0.2s;
+        }
+
+        .back-button:hover {
+            background: #fff;
+            color: #000;
+            transform: translate(-2px, -2px);
+            box-shadow: 6px 6px 0 #000;
+        }
+
+        @media (min-width: 640px) {
+            header h1 {
+                font-size: 36px;
+            }
+
+            body {
+                padding: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Display MESSAGE</h1>
+    </header>
+
+    <div class="container">
+        <div class="control-panel">
+            <h2 style="margin-bottom: 15px; font-size: 18px;">MENSAGEM ATUAL:</h2>
+            <div class="display-preview" id="preview">Carregando...</div>
+
+            <h2 style="margin-bottom: 15px; font-size: 18px;">MENSAGENS RAPIDAS:</h2>
+            <div class="quick-messages">
+                <button class="quick-btn" onclick="setQuickMessage('Hello ESP32!')">Hello ESP32!</button>
+                <button class="quick-btn" onclick="setQuickMessage('IoT Power')">IoT Power</button>
+                <button class="quick-btn" onclick="setQuickMessage('MicroPython')">MicroPython</button>
+                <button class="quick-btn" onclick="setQuickMessage('ESP32-C3')">ESP32-C3</button>
+            </div>
+
+            <hr style="border: 2px solid #000; margin: 30px 0;">
+
+            <div class="input-group">
+                <label>NOVA MENSAGEM:</label>
+                <textarea id="messageInput" maxlength="200" oninput="updateCounter()"></textarea>
+                <div class="char-counter" id="charCounter">0 / 200 caracteres</div>
+            </div>
+
+            <button onclick="sendMessage()">ENVIAR</button>
+            <button class="btn-clear" onclick="clearMessage()">LIMPAR DISPLAY</button>
+        </div>
+
+        <a href="/" class="back-button">← VOLTAR</a>
+    </div>
+
+    <script>
+        async function loadCurrentMessage() {
+            try {
+                const response = await fetch('/message');
+                const message = await response.text();
+                document.getElementById('preview').textContent = message || '(vazio)';
+            } catch (error) {
+                console.error('Erro ao carregar mensagem:', error);
+                document.getElementById('preview').textContent = 'Erro ao carregar';
+            }
+        }
+
+        async function sendMessage() {
+            const message = document.getElementById('messageInput').value.trim();
+
+            if (!message) {
+                alert('Digite uma mensagem primeiro!');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/message?text=${encodeURIComponent(message)}`);
+
+                if (response.ok) {
+                    await loadCurrentMessage();
+                    document.getElementById('messageInput').value = '';
+                    updateCounter();
+                } else {
+                    alert('Erro ao enviar mensagem');
+                }
+            } catch (error) {
+                alert('Erro de conexão');
+            }
+        }
+
+        function setQuickMessage(message) {
+            document.getElementById('messageInput').value = message;
+            updateCounter();
+        }
+
+        async function clearMessage() {
+            try {
+                await fetch('/message?text= ');
+                await loadCurrentMessage();
+            } catch (error) {
+                alert('Erro ao limpar display');
+            }
+        }
+
+        function updateCounter() {
+            const textarea = document.getElementById('messageInput');
+            const counter = document.getElementById('charCounter');
+            counter.textContent = `${textarea.value.length} / 200 caracteres`;
+        }
+
+        // Carrega mensagem atual ao iniciar
+        loadCurrentMessage();
+    </script>
+</body>
+</html>

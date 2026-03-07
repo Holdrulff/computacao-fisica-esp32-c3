@@ -49,6 +49,10 @@ class WebServer:
         self.app.get('/message')(self.handlers.message_handler)   # GET reads or sets message
         self.app.post('/message')(self.handlers.message_handler)  # POST sets message
 
+        # Snake game leaderboard
+        self.app.get('/snake/leaderboard')(self.handlers.snake_leaderboard)
+        self.app.post('/snake/score')(self.handlers.snake_add_score)
+
         self.logger.info("Routes configured successfully")
 
     async def start(self):
