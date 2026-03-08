@@ -1,18 +1,5 @@
 # ESP32-C3 Deployment Guide
 
-## Current Status
-
-### Message.html Endpoint Fix
-
-The `/www/message.html` endpoint was showing an error message:
-```json
-{"error": "Display feature has been removed", "message": "OLED display is no longer available"}
-```
-
-**This error is from old code.** The issue was fixed in commit `a6cc3f5` where the `message_handler` in `src/web/routes.py` was restored with proper display availability checking.
-
-**If you're still seeing this error**, your ESP32-C3 device is running an older version of the code from commit `d98d9fd`. You need to deploy the latest code.
-
 ## Deployment Methods
 
 ### Method 1: Using deploy.py (Recommended)
@@ -78,79 +65,18 @@ python -m mpremote
 
 # Or use screen (Linux/macOS)
 screen /dev/ttyUSB0 115200
-
-# Check for updated message_handler in routes.py
-# The handler should check display.is_available, not return 410 error
 ```
 
-### 2. Test Message Endpoint
-
-```bash
-# Test via curl
-curl http://dv01.local:5000/message?text=Hello
-
-# Expected successful response:
-{
-    "success": true,
-    "message": "Hello",
-    "displayed": true
-}
-
-# If display hardware is unavailable (but code is correct):
-{
-    "success": false,
-    "message": "Hello",
-    "displayed": false,
-    "error": "Display unavailable"
-}
-# HTTP Status: 503 Service Unavailable
-
-# OLD ERROR (means device has old code):
-{
-    "error": "Display feature has been removed",
-    "message": "OLED display is no longer available"
-}
-# HTTP Status: 410 Gone
-```
-
-### 3. Test Message.html Interface
-
-1. Open browser to `http://dv01.local:5000/www/message.html`
-2. Should see message panel UI (not error message)
-3. Type a test message and click "Send Message"
-4. Should get success response
-5. If display hardware is connected, text appears on OLED
-
-### 4. Check Web Interface
+### 2. Check Web Interface
 
 Visit `http://dv01.local:5000/` and verify:
 - [ ] Page loads without errors
 - [ ] LED Control card shows 3 items: LED ON, LED OFF, BLINK
-- [ ] Display OLED card shows: Message Panel, Morse Code
+- [ ] Display OLED card shows: Morse Code
 - [ ] Animated background circles moving right
 - [ ] All buttons/links functional
 
 ## Troubleshooting
-
-### Error: 410 Gone - "Display feature has been removed"
-
-**Cause**: Device is running old code from commit d98d9fd
-
-**Solution**:
-1. Deploy latest code using Method 1 or 2 above
-2. Verify deployment with curl test
-3. Hard refresh browser (Ctrl+F5)
-
-### Error: 503 Service Unavailable - "Display unavailable"
-
-**Cause**: Code is correct, but display hardware not detected
-
-**Solutions**:
-- Check I2C connections (SCL=GPIO6, SDA=GPIO5)
-- Verify SSD1306 OLED is powered (3.3V, GND)
-- Check I2C address is 0x3C
-- Run I2C scan in REPL to detect devices
-- Display functionality is optional - other features still work
 
 ### Browser Shows Old Version
 
@@ -207,12 +133,6 @@ After deployment, verify all features work:
 - [ ] LED OFF button works
 - [ ] BLINK function works (5x default)
 
-### Display Features
-- [ ] Message endpoint: `/message?text=Test`
-- [ ] Message.html page loads
-- [ ] Can send messages to display (if hardware available)
-- [ ] Graceful degradation if display unavailable
-
 ### Morse Code
 - [ ] Accessible from Display OLED card only
 - [ ] morse.html page loads
@@ -236,7 +156,7 @@ After deployment, verify all features work:
 
 ```bash
 # Full deployment with verification
-python deploy.py && curl http://dv01.local:5000/message?text=DeployTest
+python deploy.py && curl http://dv01.local:5000/hello
 
 # Deploy and watch logs
 python deploy.py && python -m mpremote

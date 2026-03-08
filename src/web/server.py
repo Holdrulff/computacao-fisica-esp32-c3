@@ -45,10 +45,6 @@ class WebServer:
         # Morse code
         self.app.route('/morse')(self.handlers.morse_blink)
 
-        # Display control (pragmatic approach - accepts GET for browser testing)
-        self.app.get('/message')(self.handlers.message_handler)   # GET reads or sets message
-        self.app.post('/message')(self.handlers.message_handler)  # POST sets message
-
         # I2C diagnostics
         self.app.get('/i2c/scan')(self.handlers.i2c_scan_handler)
 

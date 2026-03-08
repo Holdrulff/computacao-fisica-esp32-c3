@@ -26,7 +26,6 @@ class RouteHandlers:
         self.display = display
         self.wifi_manager = wifi_manager
         self.hostname = hostname
-        self.last_message = None
 
         # Request counter for periodic GC
         self._request_count = 0
@@ -302,44 +301,6 @@ class RouteHandlers:
             return {'error': 'Internal error'}, 500
         finally:
             self._morse_in_progress = False
-
-    async def message_handler(self, request):
-        """Display a message on the OLED screen."""
-        try:
-            text = request.args.get('text', 'Hello ESP32!')
-
-            # Validate text length
-            if len(text) > 20:
-                return {'error': 'Text too long (max 20 characters)'}, 400
-
-            if self.display and self.display.is_available:
-                self.display.show_message(text)
-
-                # Capture display image
-                import constants
-                image_data = self.display.get_framebuffer_as_base64()
-
-                logger.info(f"Displayed message via HTTP: {text}")
-                return {
-                    'success': True,
-                    'message': text,
-                    'displayed': True,
-                    'image': image_data,  # May be None if capture fails
-                    'image_width': constants.DISPLAY_WIDTH,
-                    'image_height': constants.DISPLAY_HEIGHT
-                }
-            else:
-                logger.warning(f"Display unavailable, message not shown: {text}")
-                return {
-                    'success': False,
-                    'message': text,
-                    'displayed': False,
-                    'image': None,
-                    'reason': 'Display hardware not detected'
-                }, 503  # Service Unavailable (not 410 Gone)
-        except Exception as e:
-            logger.error(f"Message display error: {e}")
-            return {'error': str(e)}, 500
 
     async def i2c_scan_handler(self, request):
         """I2C bus scan diagnostic endpoint."""
