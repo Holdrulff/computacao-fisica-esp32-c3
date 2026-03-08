@@ -139,7 +139,7 @@ class MorseEncoder:
 
         # Display buffer - build string incrementally, update every N chars
         display_buffer = []
-        UPDATE_INTERVAL = 3  # Update display every 3 characters (reduces I2C calls)
+        UPDATE_INTERVAL = 1  # Update display every character for smooth feedback
 
         # Blink the pattern
         words = morse.split('  ')  # Double space = word separator
@@ -184,6 +184,10 @@ class MorseEncoder:
         # Final display update (show complete text)
         if display_buffer:
             self._update_display(''.join(display_buffer))
+
+        # Ensure LED is off before restoration (guarantees clean state)
+        self.led.off()
+        await asyncio.sleep(0.05)  # Short delay for state stabilization
 
         # Restore initial LED state
         if initial_state:

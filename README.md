@@ -160,13 +160,13 @@ Para acessar o Python interativo remotamente:
 
 ## 🔧 Como Replicar
 
-### Materiais
+### Materiais Necessários
 
 - **ESP32-C3 Supermini** com display OLED 0.42" integrado
 - Cabo USB para dados
-- Computador com Python 3.x
+- Computador com Python 3.7+
 
-### Instalação
+### Passo 1: Configuração do Ambiente
 
 #### Windows:
 
@@ -179,84 +179,130 @@ cd computacao-fisica-esp32-c3
 python -m venv venv
 venv\Scripts\activate
 pip install -r requirements.txt
-
-# 3. Flash MicroPython firmware
-esptool --port COM3 erase_flash
-esptool --port COM3 write_flash 0 firmware/ESP32_GENERIC_C3-20251209-v1.27.0.bin
-
-# 4. Configure credenciais WiFi
-# Edite src/.env com suas credenciais
 ```
 
 #### Linux/Mac:
 
 ```bash
 # 1. Clone o repositório
-git clone https://github.com/seu-usuario/esp32-c3-iot.git
-cd esp32-c3-iot
+git clone https://github.com/Holdrulff/computacao-fisica-esp32-c3.git
+cd computacao-fisica-esp32-c3
 
 # 2. Crie ambiente virtual e instale dependências
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-
-# 3. Flash MicroPython firmware
-esptool.py --port /dev/ttyACM0 erase_flash
-esptool.py --port /dev/ttyACM0 write_flash 0 firmware/ESP32_GENERIC_C3-20251209-v1.27.0.bin
-
-# 4. Configure credenciais WiFi
-# Edite src/.env com suas credenciais
 ```
 
-### Upload Manual
+### Passo 2: Flash do MicroPython
+
+#### Windows:
+
+```powershell
+esptool --port COM3 erase_flash
+esptool --port COM3 write_flash 0 firmware/ESP32_GENERIC_C3-20251209-v1.27.0.bin
+```
+
+#### Linux/Mac:
 
 ```bash
-# Criar diretórios
-mpremote connect COM3 mkdir core hardware net_manager web lib
+esptool.py --port /dev/ttyACM0 erase_flash
+esptool.py --port /dev/ttyACM0 write_flash 0 firmware/ESP32_GENERIC_C3-20251209-v1.27.0.bin
+```
 
-# Upload módulos core
-mpremote connect COM3 cp src/core/__init__.py :core/__init__.py
-mpremote connect COM3 cp src/core/app.py :core/app.py
-mpremote connect COM3 cp src/core/logger.py :core/logger.py
+### Passo 3: Configurar Credenciais WiFi
 
-# Upload módulos hardware
-mpremote connect COM3 cp src/hardware/__init__.py :hardware/__init__.py
-mpremote connect COM3 cp src/hardware/led.py :hardware/led.py
-mpremote connect COM3 cp src/hardware/display.py :hardware/display.py
-mpremote connect COM3 cp src/hardware/morse.py :hardware/morse.py
+Edite o arquivo `src/.env` com suas credenciais:
 
-# Upload módulos network
-mpremote connect COM3 cp src/net_manager/__init__.py :net_manager/__init__.py
-mpremote connect COM3 cp src/net_manager/wifi_manager.py :net_manager/wifi_manager.py
+```env
+WIFI_SSID=sua_rede
+WIFI_PASSWORD=sua_senha
+HOSTNAME=dv01
+```
 
-# Upload módulos web
-mpremote connect COM3 cp src/web/__init__.py :web/__init__.py
-mpremote connect COM3 cp src/web/server.py :web/server.py
-mpremote connect COM3 cp src/web/routes.py :web/routes.py
+### Passo 4: Deploy do Código
 
-# Upload bibliotecas
-mpremote connect COM3 cp src/lib/dotenv_micro.py :lib/dotenv_micro.py
-mpremote connect COM3 cp src/lib/microdot.py :lib/microdot.py
-mpremote connect COM3 cp src/lib/ssd1306.mpy :lib/ssd1306.mpy
-mpremote connect COM3 cp src/lib/aiorepl.mpy :lib/aiorepl.mpy
+O projeto inclui scripts automatizados de deploy que:
+- ✅ Auto-detectam a porta serial do ESP32
+- ✅ Limpam o dispositivo completamente
+- ✅ Copiam toda a estrutura de `src/` mantendo diretórios
+- ✅ Verificam o resultado do deploy
 
-# Upload configuração e entry points
-mpremote connect COM3 cp src/constants.py :constants.py
-mpremote connect COM3 cp src/config.py :config.py
-mpremote connect COM3 cp src/.env :.env
-mpremote connect COM3 cp src/boot.py :boot.py
-mpremote connect COM3 cp src/main.py :main.py
-mpremote connect COM3 cp src/webrepl_cfg.py :webrepl_cfg.py
+#### Uso Rápido:
 
-# Reset
-mpremote connect COM3 exec "import machine; machine.reset()"
+```bash
+# Windows PowerShell/CMD
+python deploy.py
+
+# Linux/Mac ou Git Bash
+./deploy.sh
+
+# Com porta específica
+python deploy.py COM3
+```
+
+O script irá:
+1. Conectar ao ESP32 (auto-detecta porta ou usa a especificada)
+2. Listar arquivos atuais no dispositivo
+3. Pedir confirmação para limpar (⚠️ deleta TUDO!)
+4. Copiar todos os arquivos de `src/` para o ESP32
+5. Verificar e mostrar o resultado
+
+**Estrutura copiada:**
+
+```
+src/boot.py          → :/boot.py (raiz do ESP32)
+src/main.py          → :/main.py
+src/core/app.py      → :/core/app.py (mantém pastas)
+src/hardware/led.py  → :/hardware/led.py
 ```
 
 ---
 
+## 🔍 Troubleshooting de Deploy
+
+### Porta não detectada
+
+```bash
+# Liste portas disponíveis
+mpremote connect list
+
+# Use porta específica
+python deploy.py COM3
+```
+
+### Erro de permissão (Linux)
+
+```bash
+sudo usermod -a -G dialout $USER
+# Faça logout e login novamente
+```
+
+### Dispositivo não responde
+
+1. Desconecte e reconecte o cabo USB
+2. Pressione o botão RESET no ESP32
+3. Feche outros programas usando a porta serial (Thonny, IDE, etc.)
+
+### Comandos Úteis
+
+```bash
+# Resetar ESP32
+mpremote connect COM3 reset
+
+# Acessar REPL interativo
+mpremote connect COM3 repl
+
+# Listar arquivos no dispositivo
+mpremote connect COM3 fs ls
+
+# Ver conteúdo de arquivo
+mpremote connect COM3 fs cat boot.py
+```
+
 ## 📡 API Endpoints
 
-### Health & Status
+**Health & Status**
 
 | Endpoint | Método | Descrição | Resposta |
 |----------|--------|-----------|----------|
@@ -294,7 +340,7 @@ mpremote connect COM3 exec "import machine; machine.reset()"
 }
 ```
 
-### Controle de LED
+**Controle de LED**
 
 | Endpoint | Método | Descrição | Resposta |
 |----------|--------|-----------|----------|
@@ -321,7 +367,7 @@ curl "http://dv01.local:5000/led/blink?count=5&interval=0.3"
 - `count`: Número de piscadas (padrão: 3, limite: 1-20)
 - `interval`: Intervalo em segundos (padrão: 0.5, limite: 0.1-2.0)
 
-### Código Morse
+**Código Morse**
 
 | Endpoint | Método | Descrição | Parâmetros |
 |----------|--------|-----------|------------|
@@ -348,7 +394,7 @@ curl -X POST http://dv01.local:5000/morse \
 - ✅ Timing padrão internacional (ITU-R M.1677-1)
 - ✅ Velocidade ajustável via parâmetro `speed`
 
-### Controle de Display
+**Controle de Display**
 
 | Endpoint | Método | Descrição | Parâmetros |
 |----------|--------|-----------|------------|
@@ -370,7 +416,7 @@ curl -X POST http://dv01.local:5000/message \
 # Resposta: {"message": "Hello World", "displayed": true}
 ```
 
-### Arquivos Estáticos
+**Arquivos Estáticos**
 
 | Endpoint | Descrição |
 |----------|-----------|

@@ -49,6 +49,9 @@ class WebServer:
         self.app.get('/message')(self.handlers.message_handler)   # GET reads or sets message
         self.app.post('/message')(self.handlers.message_handler)  # POST sets message
 
+        # I2C diagnostics
+        self.app.get('/i2c/scan')(self.handlers.i2c_scan_handler)
+
         # Snake game leaderboard
         self.app.get('/snake/leaderboard')(self.handlers.snake_leaderboard)
         self.app.post('/snake/score')(self.handlers.snake_add_score)

@@ -13,9 +13,11 @@
 
         body {
             font-family: 'Arial Black', 'Arial Bold', sans-serif;
-            background: #fffef0;
+            background-color: #fffef0;
             padding: 16px;
             line-height: 1.6;
+            position: relative;
+            overflow-x: hidden; /* Prevent horizontal scrollbar from animated circles */
         }
 
         header {
@@ -211,6 +213,42 @@
             }
         }
 
+        /* Animated Background Circles */
+        .bg-circle {
+            position: fixed;
+            border-radius: 50%;
+            pointer-events: none; /* Don't interfere with clicks */
+            z-index: -1; /* Behind all content */
+            animation: scrollRight linear infinite;
+            opacity: 0.8;
+            will-change: transform; /* Performance hint for GPU acceleration */
+        }
+
+        @keyframes scrollRight {
+            0% {
+                transform: translateX(0);
+            }
+            100% {
+                transform: translateX(calc(100vw + 400px)); /* Move to right edge + buffer */
+            }
+        }
+
+        /* Accessibility: Reduce animation on request */
+        @media (prefers-reduced-motion: reduce) {
+            .bg-circle {
+                animation: none;
+                opacity: 0.2; /* Dim static circles */
+                display: none; /* Or completely hide */
+            }
+        }
+
+        /* Performance: Reduce circles on small screens */
+        @media (max-width: 640px) {
+            .bg-circle:nth-child(n+5) {
+                display: none; /* Show only first 4 circles on mobile */
+            }
+        }
+
         /* Modal Styles - Terminal Theme */
         .modal-overlay {
             display: none;
@@ -371,6 +409,42 @@
             cursor: not-allowed;
         }
     </style>
+    <script>
+        // Animated background circles - client-side rendering
+        document.addEventListener('DOMContentLoaded', function() {
+            const colors = [
+                'rgba(255, 235, 59, 0.15)',   // Light yellow #ffeb3b
+                'rgba(255, 107, 53, 0.12)',   // Light coral #ff6b35
+                'rgba(255, 64, 129, 0.15)',   // Light pink #ff4081
+                'rgba(244, 67, 54, 0.12)'     // Light red #f44336
+            ];
+
+            const circleCount = 6; // Number of circles
+
+            for (let i = 0; i < circleCount; i++) {
+                const circle = document.createElement('div');
+                circle.className = 'bg-circle';
+
+                // Randomize properties
+                const size = Math.random() * 250 + 150; // 150-400px diameter
+                const yPos = Math.random() * 100; // 0-100% vertical position
+                const duration = Math.random() * 20 + 15; // 15-35s animation duration
+                const delay = Math.random() * -10; // -10 to 0s (start mid-animation)
+                const colorIndex = Math.floor(Math.random() * colors.length);
+
+                // Apply styles
+                circle.style.width = size + 'px';
+                circle.style.height = size + 'px';
+                circle.style.top = yPos + '%';
+                circle.style.left = '-' + (size + 50) + 'px'; // Start off-screen left
+                circle.style.backgroundColor = colors[colorIndex];
+                circle.style.animationDuration = duration + 's';
+                circle.style.animationDelay = delay + 's';
+
+                document.body.appendChild(circle);
+            }
+        });
+    </script>
 </head>
 <body>
     <header>
@@ -379,9 +453,6 @@
     </header>
 
     <div class="container">
-        <a href="/www/snake.html" class="big-button">🐍 JOGAR SNAKE →</a>
-        <a href="/www/tictactoe.html" class="big-button" style="background: #f44336;">⭕ JOGO DA VELHA →</a>
-
         <div class="grid">
             <div class="card led">
                 <div class="card-header">
@@ -400,10 +471,6 @@
                     <li class="link-item">
                         <button onclick="blinkLED()">BLINK</button>
                         <div class="description">Pisca LED 5x (count=1-20, interval=0.1-2.0s)</div>
-                    </li>
-                    <li class="link-item">
-                        <button onclick="sendMorse()">MORSE CODE</button>
-                        <div class="description">LED em código Morse + Display (text=1-20 chars)</div>
                     </li>
                 </ul>
             </div>

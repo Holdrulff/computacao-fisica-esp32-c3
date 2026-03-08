@@ -52,17 +52,40 @@
             margin-bottom: 20px;
         }
 
-        .display-preview {
+        .display-container {
             background: #000;
-            color: #00ff00;
-            border: 5px solid #000;
             padding: 20px;
-            min-height: 150px;
+            border: 5px solid #000;
             margin-bottom: 30px;
+            text-align: center;
+        }
+
+        #displayImage {
+            width: 360px;
+            height: 200px;
+            background: #000;
+            border: 2px solid #00ff00;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            image-rendering: -moz-crisp-edges;
+            display: block;
+            margin: 0 auto;
+        }
+
+        #displayImage.unavailable {
+            opacity: 0.3;
+            filter: brightness(0.5);
+        }
+
+        #displayStatus {
+            color: #00ff00;
             font-family: 'Courier New', monospace;
-            font-size: 14px;
-            white-space: pre-wrap;
-            word-break: break-all;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        #displayStatus.error {
+            color: #ff4444;
         }
 
         .input-group {
@@ -173,8 +196,11 @@
 
     <div class="container">
         <div class="control-panel">
-            <h2 style="margin-bottom: 15px; font-size: 18px;">MENSAGEM ATUAL:</h2>
-            <div class="display-preview" id="preview">Carregando...</div>
+            <h2 style="margin-bottom: 15px; font-size: 18px;">DISPLAY ATUAL:</h2>
+            <div class="display-container">
+                <img id="displayImage" src="" alt="Display preview" />
+                <div id="displayStatus">Carregando...</div>
+            </div>
 
             <h2 style="margin-bottom: 15px; font-size: 18px;">MENSAGENS RAPIDAS:</h2>
             <div class="quick-messages">
@@ -188,8 +214,8 @@
 
             <div class="input-group">
                 <label>NOVA MENSAGEM:</label>
-                <textarea id="messageInput" maxlength="200" oninput="updateCounter()"></textarea>
-                <div class="char-counter" id="charCounter">0 / 200 caracteres</div>
+                <textarea id="messageInput" maxlength="20" oninput="updateCounter()"></textarea>
+                <div class="char-counter" id="charCounter">0 / 20 caracteres</div>
             </div>
 
             <button onclick="sendMessage()">ENVIAR</button>
@@ -200,14 +226,51 @@
     </div>
 
     <script>
+        function showPlaceholder(message) {
+            const imgElement = document.getElementById('displayImage');
+            const statusElement = document.getElementById('displayStatus');
+
+            // Create placeholder canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = 72;
+            canvas.height = 40;
+            const ctx = canvas.getContext('2d');
+
+            // Black background
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, 72, 40);
+
+            // Gray text
+            ctx.fillStyle = '#666';
+            ctx.font = '8px monospace';
+            ctx.fillText('DISPLAY', 10, 20);
+            ctx.fillText('OFFLINE', 10, 30);
+
+            imgElement.src = canvas.toDataURL('image/png');
+            imgElement.classList.add('unavailable');
+            statusElement.textContent = message;
+            statusElement.classList.add('error');
+        }
+
         async function loadCurrentMessage() {
+            const imgElement = document.getElementById('displayImage');
+            const statusElement = document.getElementById('displayStatus');
+
             try {
                 const response = await fetch('/message');
-                const message = await response.text();
-                document.getElementById('preview').textContent = message || '(vazio)';
+                const data = await response.json();
+
+                if (data.success && data.image) {
+                    imgElement.src = data.image;
+                    imgElement.classList.remove('unavailable');
+                    statusElement.textContent = `Mensagem: "${data.message || '(vazio)'}" | ${data.image_width}×${data.image_height}px`;
+                    statusElement.classList.remove('error');
+                } else {
+                    showPlaceholder(data.reason || 'Display não disponível');
+                }
             } catch (error) {
-                console.error('Erro ao carregar mensagem:', error);
-                document.getElementById('preview').textContent = 'Erro ao carregar';
+                console.error('Erro ao carregar imagem do display:', error);
+                showPlaceholder('Erro de conexão');
             }
         }
 
@@ -221,16 +284,32 @@
 
             try {
                 const response = await fetch(`/message?text=${encodeURIComponent(message)}`);
+                const data = await response.json();
 
-                if (response.ok) {
-                    await loadCurrentMessage();
+                if (data.success) {
+                    // Update display image
+                    if (data.image) {
+                        const imgElement = document.getElementById('displayImage');
+                        imgElement.src = data.image;
+                        imgElement.classList.remove('unavailable');
+
+                        const statusElement = document.getElementById('displayStatus');
+                        statusElement.textContent = `Mensagem: "${data.message}" | ${data.image_width}×${data.image_height}px`;
+                        statusElement.classList.remove('error');
+                    }
+
+                    // Clear input
                     document.getElementById('messageInput').value = '';
                     updateCounter();
                 } else {
-                    alert('Erro ao enviar mensagem');
+                    const errorMsg = data.reason || data.error || 'Erro ao enviar mensagem';
+                    alert(`Erro: ${errorMsg}`);
+                    showPlaceholder(errorMsg);
                 }
             } catch (error) {
+                console.error('Erro:', error);
                 alert('Erro de conexão');
+                showPlaceholder('Erro de conexão');
             }
         }
 
@@ -241,9 +320,20 @@
 
         async function clearMessage() {
             try {
-                await fetch('/message?text= ');
-                await loadCurrentMessage();
+                const response = await fetch('/message?text= ');
+                const data = await response.json();
+
+                if (data.success && data.image) {
+                    const imgElement = document.getElementById('displayImage');
+                    imgElement.src = data.image;
+                    imgElement.classList.remove('unavailable');
+
+                    const statusElement = document.getElementById('displayStatus');
+                    statusElement.textContent = `Mensagem: "${data.message}" | ${data.image_width}×${data.image_height}px`;
+                    statusElement.classList.remove('error');
+                }
             } catch (error) {
+                console.error('Erro:', error);
                 alert('Erro ao limpar display');
             }
         }
@@ -251,7 +341,7 @@
         function updateCounter() {
             const textarea = document.getElementById('messageInput');
             const counter = document.getElementById('charCounter');
-            counter.textContent = `${textarea.value.length} / 200 caracteres`;
+            counter.textContent = `${textarea.value.length} / 20 caracteres`;
         }
 
         // Carrega mensagem atual ao iniciar

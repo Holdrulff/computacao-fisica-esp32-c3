@@ -31,6 +31,9 @@ class RouteHandlers:
         # Request counter for periodic GC
         self._request_count = 0
 
+        # Morse transmission mutex
+        self._morse_in_progress = False
+
         # Cache static health data to avoid creating dict on every request
         self._static_health = {
             'hostname': self.hostname,
@@ -278,8 +281,13 @@ class RouteHandlers:
         except ValueError:
             return {'error': 'Invalid speed value'}, 400
 
+        # Check if morse is already in progress
+        if self._morse_in_progress:
+            return {'error': 'Morse transmission already in progress'}, 409
+
         # Encode and blink
         try:
+            self._morse_in_progress = True
             morse_encoder = MorseEncoder(self.led, display=self.display, dot_duration=speed)
             result = await morse_encoder.blink_morse(text)
 
@@ -292,6 +300,8 @@ class RouteHandlers:
         except Exception as e:
             logger.error(f"Morse error: {e}")
             return {'error': 'Internal error'}, 500
+        finally:
+            self._morse_in_progress = False
 
     async def message_handler(self, request):
         """Display a message on the OLED screen."""
@@ -299,16 +309,24 @@ class RouteHandlers:
             text = request.args.get('text', 'Hello ESP32!')
 
             # Validate text length
-            if len(text) > 100:
-                return {'error': 'Text too long (max 100 chars)'}, 400
+            if len(text) > 20:
+                return {'error': 'Text too long (max 20 characters)'}, 400
 
             if self.display and self.display.is_available:
                 self.display.show_message(text)
+
+                # Capture display image
+                import constants
+                image_data = self.display.get_framebuffer_as_base64()
+
                 logger.info(f"Displayed message via HTTP: {text}")
                 return {
                     'success': True,
                     'message': text,
-                    'displayed': True
+                    'displayed': True,
+                    'image': image_data,  # May be None if capture fails
+                    'image_width': constants.DISPLAY_WIDTH,
+                    'image_height': constants.DISPLAY_HEIGHT
                 }
             else:
                 logger.warning(f"Display unavailable, message not shown: {text}")
@@ -316,10 +334,39 @@ class RouteHandlers:
                     'success': False,
                     'message': text,
                     'displayed': False,
+                    'image': None,
                     'reason': 'Display hardware not detected'
                 }, 503  # Service Unavailable (not 410 Gone)
         except Exception as e:
             logger.error(f"Message display error: {e}")
+            return {'error': str(e)}, 500
+
+    async def i2c_scan_handler(self, request):
+        """I2C bus scan diagnostic endpoint."""
+        try:
+            from machine import Pin, I2C
+            import constants
+
+            # Initialize I2C
+            i2c = I2C(0, scl=Pin(constants.DISPLAY_I2C_SCL_PIN), sda=Pin(constants.DISPLAY_I2C_SDA_PIN))
+
+            # Scan for devices
+            devices = i2c.scan()
+            devices_hex = [hex(d) for d in devices]
+
+            # Check if display is detected
+            display_addr = constants.DISPLAY_I2C_ADDR
+            display_detected = display_addr in devices
+
+            return {
+                'devices_found': devices_hex,
+                'display_expected_address': hex(display_addr),
+                'display_detected': display_detected,
+                'scl_pin': constants.DISPLAY_I2C_SCL_PIN,
+                'sda_pin': constants.DISPLAY_I2C_SDA_PIN
+            }
+        except Exception as e:
+            logger.error(f"I2C scan error: {e}")
             return {'error': str(e)}, 500
 
     # Snake game leaderboard
