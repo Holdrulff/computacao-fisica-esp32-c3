@@ -7,7 +7,7 @@ Compatible with ESP32, ESP8266, RP2040, and other MicroPython boards.
 
 Author: Wesley Fernandes (community contributions welcome)
 License: MIT
-Repository: https://github.com/YOUR_USERNAME/micropython-dotenv
+GitHub: https://github.com/holdrulff/
 """
 
 __version__ = '1.0.0'
