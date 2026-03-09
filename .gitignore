@@ -1,13 +1,37 @@
-venv
-thonny-ide
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+env/
+ENV/
+thonny-ide/
 
 # Environment files with secrets
 .env
 src/.env
+*.env.local
 
 # Keep .env.example as template
 !src/.env.example
 
-micropython-dotenv.claude/
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-#nota.md
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+micropython-dotenv.claude/

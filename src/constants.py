@@ -5,7 +5,6 @@ Application constants and configuration values.
 # Performance / Debug
 DEBUG = False  # Enable development features (IDE interrupt delay, verbose logging)
 ENABLE_AIOREPL = False  # Enable async REPL (can be disabled for faster boot)
-ENABLE_WEBREPL = False  # Enable WebREPL (conflicts with HTTP server event loop)
 
 # Hardware pins
 LED_PIN = 8

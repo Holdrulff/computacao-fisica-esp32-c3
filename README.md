@@ -1,316 +1,240 @@
-# ESP32-C3 IoT Device - Refactored Edition
+# ESP32-C3 IoT Device
+
+![MicroPython](https://img.shields.io/badge/MicroPython-v1.27.0-blue)
+![ESP32-C3](https://img.shields.io/badge/ESP32--C3-Supermini-green)
+![License](https://img.shields.io/badge/License-MIT-yellow)
+
+Dispositivo IoT baseado em ESP32-C3 com display OLED integrado, servidor web assíncrono e API REST completa.
 
 ![ESP32-C3 Device](./mdImageAssets/4929270778520341423.jpg)
 
 ## 📋 Índice
 
-1. [O que o Dispositivo Faz](#-o-que-o-dispositivo-faz)
-2. [Arquitetura Refatorada](#-arquitetura-refatorada)
-3. [Como Usar](#-como-usar)
-4. [Como Replicar](#-como-replicar)
-5. [API Endpoints](#-api-endpoints)
-6. [Estrutura do Código](#-estrutura-do-código)
-7. [Troubleshooting](#-troubleshooting)
+- [Funcionalidades](#-funcionalidades)
+- [Arquitetura](#️-arquitetura)
+- [Hardware](#-hardware)
+- [Instalação](#-instalação)
+- [Uso](#-uso)
+- [API Endpoints](#-api-endpoints)
+- [Desenvolvimento](#-desenvolvimento)
+- [Troubleshooting](#️-troubleshooting)
+- [Licença](#-licença)
 
----
+## ✨ Funcionalidades
 
-## 🎯 O que o Dispositivo Faz
+- ✅ **Servidor Web Assíncrono** - Interface web responsiva na porta 5000
+- ✅ **API REST** - Controle via HTTP com respostas JSON
+- ✅ **Controle de LED** - Ligar/desligar/toggle/piscar com parâmetros
+- ✅ **Código Morse** - Transmissão via LED com display progressivo
+- ✅ **Display OLED** - Mensagens customizáveis (72x40px)
+- ✅ **Monitoramento** - Informações de sistema, rede e armazenamento
+- ✅ **Jogos** - Snake e Tic-Tac-Toe via web
+- ✅ **Configuração Segura** - Credenciais via .env (não no código)
+- ✅ **Multi-cliente** - Suporte a múltiplos acessos simultâneos
 
-Dispositivo IoT que se conecta ao WiFi e permite, através do navegador web:
+## 🏗️ Arquitetura
 
-- ✅ **Controlar LED** integrado (ligar/desligar/toggle/piscar)
-- ✅ **Código Morse** via LED com display progressivo
-- ✅ **Exibir mensagens** no display OLED
-- ✅ **Monitorar armazenamento** (espaço em disco)
-- ✅ **Acessar REPL remoto** via WebREPL (CLI Python)
-- ✅ **Gerenciar arquivos** do sistema
-- ✅ **API REST** completa com endpoints JSON
-- ✅ **Multi-usuário** simultâneo via asyncio
-- ✅ **Configuração segura** com variáveis de ambiente (.env)
+### Padrões de Design
 
----
+- **Dependency Injection** - Componentes desacoplados e testáveis
+- **Separation of Concerns** - Camadas bem definidas (hardware, rede, web)
+- **SOLID Principles** - Single responsibility, Open-closed, Dependency inversion
+- **Error Handling** - Try-catch abrangente com graceful degradation
+- **Structured Logging** - Sistema de logs com níveis e timestamps
+- **Configuration Management** - Variáveis de ambiente (.env)
 
-## 🏗️ Arquitetura Refatorada
-
-Este projeto foi **completamente refatorado** seguindo princípios de engenharia de software moderna:
-
-### Padrões Aplicados
-
-- ✅ **Dependency Injection** - Componentes recebem dependências explicitamente
-- ✅ **Separation of Concerns** - Hardware, rede e web em camadas isoladas
-- ✅ **SOLID Principles** - Single responsibility, Open-closed, Dependency inversion
-- ✅ **Error Handling** - Try-catch abrangente com graceful degradation
-- ✅ **Structured Logging** - Sistema de logs com níveis e timestamps
-- ✅ **Hardware Abstraction** - LEDs e displays com interfaces limpas
-- ✅ **Configuration Management** - Credenciais em .env (não no código)
-- ✅ **Type Hints** - Documentação através de tipos Python
-
-### Estrutura de Pastas
+### Estrutura do Projeto
 
 ```
 src/
 ├── boot.py                 # MicroPython boot script
 ├── main.py                 # Application entry point
-├── config.py               # Configuration loader (uses .env)
+├── config.py               # Configuration loader (.env)
 ├── constants.py            # System constants
 ├── .env                    # Credentials (gitignored)
 │
-├── core/                   # 🧠 Core application logic
-│   ├── app.py             # Main Application class (orchestrator)
-│   └── logger.py          # Structured logging system
+├── core/                   # Core application logic
+│   ├── app.py             # Main Application orchestrator
+│   └── logger.py          # Structured logging
 │
-├── hardware/               # 🔧 Hardware abstraction layer
+├── hardware/               # Hardware abstraction layer
 │   ├── led.py             # LED control (supports active-low)
 │   ├── display.py         # OLED display (SSD1306)
-│   └── morse.py           # Morse code encoder with LED signaling
+│   └── morse.py           # Morse code encoder
 │
-├── net_manager/            # 🌐 Network management
+├── net_manager/            # Network management
 │   └── wifi_manager.py    # WiFi with retry logic
 │
-├── web/                    # 🌍 Web server
+├── web/                    # Web server
 │   ├── server.py          # Microdot server setup
 │   └── routes.py          # HTTP route handlers
 │
-├── lib/                    # 📚 Third-party libraries
+├── games/                  # Game logic
+│   ├── snake_leaderboard.py
+│   └── tictactoe.py
+│
+├── lib/                    # Third-party libraries
 │   ├── dotenv_micro.py    # micropython-dotenv
 │   ├── microdot.py        # Async web framework
 │   ├── ssd1306.mpy        # Display driver
 │   └── aiorepl.mpy        # Async REPL
 │
-└── www/                    # 🎨 Static web assets
+└── www/                    # Static web assets
     ├── index.html
     ├── index.css
-    └── webrepl/           # WebREPL client
+    ├── snake.html
+    ├── tictactoe.html
+    └── morse.html
 ```
 
-### Fluxo de Execução
+## 🔧 Hardware
 
-```
-[ESP32 Powers On]
-        ↓
-boot.py → Starts WebREPL
-        ↓
-main.py → Creates Application instance
-        ↓
-Application.setup():
-    1. Initialize Hardware (LED, Display)
-    2. Connect to WiFi (with retry + LED feedback)
-    3. Initialize Web Server (Microdot)
-    4. Display status on OLED
-        ↓
-Application.run():
-    ├─ Web Server (async task on port 5000)
-    └─ aiorepl (async task - REPL prompt)
-        ↓
-[Event Loop runs until shutdown]
-```
+### Especificações
 
----
+- **Microcontrolador**: ESP32-C3 Supermini
+- **Display**: OLED 0.42" SSD1306 (72x40px, I2C)
+  - SCL: GPIO 6
+  - SDA: GPIO 5
+  - Endereço: 0x3C
+- **LED**: GPIO 8 (active-low)
+- **WiFi**: 2.4GHz apenas (802.11 b/g/n)
 
-## 🚀 Como Usar
+### Pinagem
 
-### 1. Configuração Inicial
+| Componente | Pino | Observações |
+|------------|------|-------------|
+| LED integrado | GPIO 8 | Active-low (invertido) |
+| Display SCL | GPIO 6 | I2C Clock |
+| Display SDA | GPIO 5 | I2C Data |
 
-**Antes de ligar o dispositivo**, configure suas credenciais WiFi:
+## 📦 Instalação
 
-1. Edite o arquivo `src/.env`:
-   ```env
-   WIFI_SSID=sua_rede
-   WIFI_PASSWORD=sua_senha
-   HOSTNAME=dv01
-   ```
+### Pré-requisitos
 
-2. Faça upload para o ESP32 (veja seção [Como Replicar](#-como-replicar))
-
-### 2. Ligando o Dispositivo
-
-1. **Conecte o ESP32** via USB (carregador ou computador)
-2. **Aguarde ~10 segundos** - LED piscando indica tentativa de conexão
-3. **LED apaga** quando conectado com sucesso
-4. **Display mostra**: `dv01:5000 192.168.x.x`
-
-### 3. Acessando via Navegador
-
-Abra o navegador e acesse:
-
-```
-http://dv01.local:5000
-```
-
-Ou use o IP mostrado no display:
-```
-http://192.168.x.x:5000
-```
-
-**Interface Web**:
-- Página principal com informações do dispositivo
-- Links para controle de LED e display
-- Acesso ao WebREPL
-
-### 4. WebREPL (REPL Remoto)
-
-Para acessar o Python interativo remotamente:
-
-1. Acesse: `http://dv01.local:5000/www/webrepl/webrepl.html`
-2. Clique em **"Connect"**
-3. Digite a senha: `star`
-4. Pronto! Você tem acesso ao REPL do ESP32
-
----
-
-## 🔧 Como Replicar
-
-### Materiais Necessários
-
-- **ESP32-C3 Supermini** com display OLED 0.42" integrado
+- Python 3.7+
+- ESP32-C3 Supermini com display OLED
 - Cabo USB para dados
-- Computador com Python 3.7+
 
-### Passo 1: Configuração do Ambiente
-
-#### Windows:
-
-```powershell
-# 1. Clone o repositório
-git clone https://github.com/Holdrulff/computacao-fisica-esp32-c3.git
-cd computacao-fisica-esp32-c3
-
-# 2. Crie ambiente virtual e instale dependências
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-#### Linux/Mac:
+### Passo 1: Clone e Configure o Ambiente
 
 ```bash
-# 1. Clone o repositório
-git clone https://github.com/Holdrulff/computacao-fisica-esp32-c3.git
+# Clone o repositório
+git clone https://github.com/seu-usuario/computacao-fisica-esp32-c3.git
 cd computacao-fisica-esp32-c3
 
-# 2. Crie ambiente virtual e instale dependências
-python3 -m venv venv
+# Crie ambiente virtual
+python -m venv venv
+
+# Ative o ambiente virtual
+# Windows:
+venv\Scripts\activate
+# Linux/Mac:
 source venv/bin/activate
+
+# Instale dependências
 pip install -r requirements.txt
 ```
 
-### Passo 2: Flash do MicroPython
+### Passo 2: Flash do Firmware MicroPython
 
-#### Windows:
-
-```powershell
+```bash
+# Windows
 esptool --port COM3 erase_flash
 esptool --port COM3 write_flash 0 firmware/ESP32_GENERIC_C3-20251209-v1.27.0.bin
+
+# Linux/Mac
+esptool.py --port /dev/ttyUSB0 erase_flash
+esptool.py --port /dev/ttyUSB0 write_flash 0 firmware/ESP32_GENERIC_C3-20251209-v1.27.0.bin
 ```
 
-#### Linux/Mac:
+### Passo 3: Configure Credenciais WiFi
 
-```bash
-esptool.py --port /dev/ttyACM0 erase_flash
-esptool.py --port /dev/ttyACM0 write_flash 0 firmware/ESP32_GENERIC_C3-20251209-v1.27.0.bin
-```
-
-### Passo 3: Configurar Credenciais WiFi
-
-Edite o arquivo `src/.env` com suas credenciais:
+Crie o arquivo `src/.env`:
 
 ```env
-WIFI_SSID=sua_rede
+WIFI_SSID=sua_rede_wifi
 WIFI_PASSWORD=sua_senha
 HOSTNAME=dv01
 ```
 
 ### Passo 4: Deploy do Código
 
-O projeto inclui scripts automatizados de deploy que:
-- ✅ Auto-detectam a porta serial do ESP32
-- ✅ Limpam o dispositivo completamente
-- ✅ Copiam toda a estrutura de `src/` mantendo diretórios
-- ✅ Verificam o resultado do deploy
-
-#### Uso Rápido:
-
 ```bash
-# Windows PowerShell/CMD
+# Windows
+deploy.bat COM3
+
+# Linux/Mac
+./deploy.sh /dev/ttyUSB0
+
+# Ou com Python (auto-detecta porta)
 python deploy.py
-
-# Linux/Mac ou Git Bash
-./deploy.sh
-
-# Com porta específica
-python deploy.py COM3
 ```
 
-O script irá:
-1. Conectar ao ESP32 (auto-detecta porta ou usa a especificada)
-2. Listar arquivos atuais no dispositivo
-3. Pedir confirmação para limpar (⚠️ deleta TUDO!)
-4. Copiar todos os arquivos de `src/` para o ESP32
-5. Verificar e mostrar o resultado
+## 🚀 Uso
 
-**Estrutura copiada:**
+### Acesso via Web
 
-```
-src/boot.py          → :/boot.py (raiz do ESP32)
-src/main.py          → :/main.py
-src/core/app.py      → :/core/app.py (mantém pastas)
-src/hardware/led.py  → :/hardware/led.py
-```
+1. Conecte o ESP32 via USB
+2. Aguarde o LED parar de piscar (conectado ao WiFi)
+3. O display mostrará o IP e hostname
+4. Acesse no navegador:
+   - `http://dv01.local:5000` (via mDNS)
+   - `http://192.168.x.x:5000` (via IP mostrado no display)
 
----
+### Acesso via REPL Serial
 
-## 🔍 Troubleshooting de Deploy
-
-### Porta não detectada
+Para desenvolvimento e debugging, use o REPL via serial:
 
 ```bash
-# Liste portas disponíveis
-mpremote connect list
+# Conectar ao REPL
+mpremote connect COM3
 
-# Use porta específica
-python deploy.py COM3
+# No REPL, você pode:
+>>> import machine
+>>> machine.freq()
+160000000
+
+>>> import os
+>>> os.listdir()
+['.env', 'boot.py', 'main.py', 'core', 'hardware', ...]
+
+>>> from hardware.led import LED
+>>> led = LED(8, inverted=True)
+>>> led.toggle()
+
+# Ctrl+] para sair
 ```
-
-### Erro de permissão (Linux)
-
-```bash
-sudo usermod -a -G dialout $USER
-# Faça logout e login novamente
-```
-
-### Dispositivo não responde
-
-1. Desconecte e reconecte o cabo USB
-2. Pressione o botão RESET no ESP32
-3. Feche outros programas usando a porta serial (Thonny, IDE, etc.)
 
 ### Comandos Úteis
 
 ```bash
-# Resetar ESP32
-mpremote connect COM3 reset
+# Resetar o dispositivo
+mpremote connect COM3 exec "import machine; machine.reset()"
 
-# Acessar REPL interativo
-mpremote connect COM3 repl
-
-# Listar arquivos no dispositivo
+# Listar arquivos
 mpremote connect COM3 fs ls
 
 # Ver conteúdo de arquivo
 mpremote connect COM3 fs cat boot.py
+
+# Copiar arquivo individual
+mpremote connect COM3 fs cp src/config.py :config.py
 ```
 
 ## 📡 API Endpoints
 
-**Health & Status**
+### Status & Health
 
-| Endpoint | Método | Descrição | Resposta |
-|----------|--------|-----------|----------|
-| `/hello` | GET | Ping simples | `{"message": "Hello from dv01.local", "status": "ok"}` |
-| `/health` | GET | Status completo do sistema | JSON com rede, hardware, display |
-| `/storage` | GET | Informações de armazenamento | JSON com total, usado, livre (MB e bytes) |
+| Endpoint | Método | Descrição |
+|----------|--------|-----------|
+| `/hello` | GET | Ping simples |
+| `/health` | GET | Status do sistema (rede, hardware) |
+| `/storage` | GET | Informações de armazenamento |
 
 **Exemplo `/health`:**
+```bash
+curl http://dv01.local:5000/health
+```
 ```json
 {
   "status": "healthy",
@@ -321,380 +245,186 @@ mpremote connect COM3 fs cat boot.py
     "ip": "192.168.1.100"
   },
   "hardware": {
-    "led": {"available": true, "state": "off"},
-    "display": {"available": true}
+    "led": {"available": true, "state": "off"}
   }
 }
 ```
 
-**Exemplo `/storage`:**
-```json
-{
-  "total": 1572864,
-  "used": 524288,
-  "free": 1048576,
-  "used_percent": 33.33,
-  "total_mb": 1.5,
-  "used_mb": 0.5,
-  "free_mb": 1.0
-}
-```
+### Controle de LED
 
-**Controle de LED**
+| Endpoint | Método | Descrição |
+|----------|--------|-----------|
+| `/led` | GET | Status atual |
+| `/led/on` | GET | Liga o LED |
+| `/led/off` | GET | Desliga o LED |
+| `/led/toggle` | GET | Alterna estado |
+| `/led/blink?count=5&interval=0.3` | GET | Pisca N vezes |
 
-| Endpoint | Método | Descrição | Resposta |
-|----------|--------|-----------|----------|
-| `/led` | GET | Status atual do LED | `{"led": "on"}` ou `{"led": "off"}` |
-| `/led/on` | GET | Liga o LED | `{"led": "on"}` |
-| `/led/off` | GET | Desliga o LED | `{"led": "off"}` |
-| `/led/toggle` | GET | Alterna estado do LED | `{"led": "on"}` ou `{"led": "off"}` |
-| `/led/blink` | GET | Pisca o LED N vezes | JSON com ação, count, interval, estado |
-
-**Exemplo básico:**
-```bash
-curl http://dv01.local:5000/led/on
-# Resposta: {"led":"on"}
-```
-
-**Exemplo blink:**
+**Exemplo:**
 ```bash
 # Piscar 5 vezes com intervalo de 0.3s
 curl "http://dv01.local:5000/led/blink?count=5&interval=0.3"
-# Resposta: {"action":"blink","count":5,"interval":0.3,"led":"off"}
 ```
 
-**Parâmetros `/led/blink`:**
-- `count`: Número de piscadas (padrão: 3, limite: 1-20)
-- `interval`: Intervalo em segundos (padrão: 0.5, limite: 0.1-2.0)
+### Código Morse
 
-**Código Morse**
+| Endpoint | Método | Descrição |
+|----------|--------|-----------|
+| `/morse?text=SOS&speed=0.2` | GET/POST | Transmite texto em Morse via LED |
 
-| Endpoint | Método | Descrição | Parâmetros |
-|----------|--------|-----------|------------|
-| `/morse?text=SOS` | GET | Pisca LED em Morse e mostra no display | `text` (obrigatório, máx 20 chars), `speed` (opcional, 0.1-0.5s) |
-| `/morse` | POST | Pisca LED em Morse | `{"text": "SOS", "speed": 0.2}` (JSON body) |
-
-**Exemplo GET:**
+**Exemplo:**
 ```bash
-curl "http://dv01.local:5000/morse?text=SOS"
-# Resposta: {"text":"SOS","morse":"... --- ...","duration":7.4,"led":"off"}
+curl "http://dv01.local:5000/morse?text=HELP"
+```
+```json
+{
+  "text": "HELP",
+  "morse": ".... . .-.. .--.",
+  "duration": 8.5,
+  "led": "off"
+}
 ```
 
-**Exemplo POST:**
-```bash
-curl -X POST http://dv01.local:5000/morse \
-  -H "Content-Type: application/json" \
-  -d '{"text":"HELLO"}'
-# Resposta: {"text":"HELLO","morse":".... . .-.. .-.. ---","duration":12.5,"led":"off"}
-```
+**Suportado**: A-Z, 0-9, pontuação (`.`, `,`, `?`, `!`, `-`)
 
-**Funcionalidades:**
-- ✅ Suporta A-Z, 0-9, pontuação (`.`, `,`, `?`, `!`, `-`)
-- ✅ Display mostra cada letra progressivamente durante transmissão
-- ✅ Timing padrão internacional (ITU-R M.1677-1)
-- ✅ Velocidade ajustável via parâmetro `speed`
+### Jogos
 
-**Controle de Display**
+| Endpoint | Método | Descrição |
+|----------|--------|-----------|
+| `/snake/leaderboard` | GET | Placar do Snake |
+| `/snake/score` | POST | Adicionar pontuação |
+| `/game/tictactoe` | GET | Estado do jogo |
+| `/game/tictactoe/move` | POST | Fazer jogada |
+| `/game/tictactoe/reset` | POST | Reiniciar jogo |
 
-| Endpoint | Método | Descrição | Parâmetros |
-|----------|--------|-----------|------------|
-| `/message` | GET | Lê mensagem atual | - |
-| `/message?text=Hello` | GET | Define mensagem | `text` (query param) |
-| `/message` | POST | Define mensagem | `{"text": "Hello"}` (JSON body) |
+## 👨‍💻 Desenvolvimento
 
-**Exemplo GET:**
-```bash
-curl "http://dv01.local:5000/message?text=Hello%20World"
-# Resposta: {"message": "Hello World", "displayed": true}
-```
-
-**Exemplo POST:**
-```bash
-curl -X POST http://dv01.local:5000/message \
-  -H "Content-Type: application/json" \
-  -d '{"text":"Hello World"}'
-# Resposta: {"message": "Hello World", "displayed": true}
-```
-
-**Arquivos Estáticos**
-
-| Endpoint | Descrição |
-|----------|-----------|
-| `/` | Página principal (index.html) |
-| `/www/<path>` | Arquivos estáticos |
-| `/www/webrepl/webrepl.html` | Cliente WebREPL |
-
----
-
-## 📚 Estrutura do Código
-
-### Dependency Injection Pattern
-
-O projeto usa **injeção de dependências** para facilitar testes e manutenção:
+### Estrutura de Logs
 
 ```python
-# ❌ Antes (global state):
-import config
-config.led.on()
+from core.logger import get_logger
 
-# ✅ Depois (dependency injection):
-class Application:
-    def __init__(self, wifi_ssid, wifi_password, hostname):
-        self.led = LED(pin=8, inverted=True)
-        self.display = Display(scl=6, sda=5)
-        self.wifi = WiFiManager(wifi_ssid, wifi_password, hostname)
-```
-
-**Benefícios:**
-- ✅ Testável (fácil criar mocks)
-- ✅ Explícito (claro quais dependências cada classe precisa)
-- ✅ Flexível (fácil trocar implementações)
-
-### Hardware Abstraction Layer
-
-**LED com suporte a Active-Low:**
-
-```python
-# O hardware do ESP32-C3 tem LED active-low (invertido)
-# on() → pin.off() → LED acende
-# off() → pin.on() → LED apaga
-
-led = LED(pin=8, inverted=True)
-led.on()   # ✅ Acende (abstração corrige a inversão)
-led.off()  # ✅ Apaga
-```
-
-**Display com Graceful Degradation:**
-
-```python
-display = Display(scl=6, sda=5)
-
-if display.is_available:
-    display.show_message("Hello")
-else:
-    logger.warning("Display not available")
-    # Aplicação continua funcionando!
-```
-
-### Structured Logging
-
-```python
-from core.logger import get_logger, LogLevel
-
-logger = get_logger('MyModule', LogLevel.INFO)
-
-logger.debug("Detalhes técnicos")
-logger.info("Informação geral")
-logger.warning("Aviso importante")
-logger.error("Erro recuperável")
-logger.critical("Erro fatal")
+logger = get_logger('ModuleName')
+logger.info("Informação")
+logger.warning("Aviso")
+logger.error("Erro")
 ```
 
 **Output:**
 ```
-[123.456] INFO  [WiFi] WiFi connected successfully
-[124.789] DEBUG [LED] LED turned ON
-[125.123] ERROR [Display] Failed to initialize: timeout
+[123.456] INFO  [WiFi] Connected successfully
+[124.789] ERROR [Display] Failed to initialize
 ```
 
-### Configuration Management
+### Dependency Injection Pattern
 
-**Antes (hardcoded - INSEGURO):**
 ```python
-WIFI_SSID = "minha_rede"      # ❌ Exposto no código
-WIFI_PASSWORD = "senha123"     # ❌ Commitado no git
+# hardware/led.py
+class LED:
+    def __init__(self, pin, inverted=False):
+        self.pin = Pin(pin, Pin.OUT)
+        self.inverted = inverted
+
+# core/app.py
+class Application:
+    def __init__(self, led, display, wifi_manager):
+        self.led = led  # Injected dependency
+        self.display = display
+        self.wifi = wifi_manager
 ```
 
-**Depois (.env - SEGURO):**
+### Adicionar Novo Endpoint
+
 ```python
-# src/.env (gitignored)
-WIFI_SSID=minha_rede
-WIFI_PASSWORD=senha123
+# web/routes.py
+class RouteHandlers:
+    async def my_new_endpoint(self, request):
+        return {'message': 'Hello!', 'status': 'ok'}
 
-# src/config.py
-from dotenv_micro import load_dotenv, get_env
-
-load_dotenv('.env')
-WIFI_SSID = get_env('WIFI_SSID')
-WIFI_PASSWORD = get_env('WIFI_PASSWORD')
+# web/server.py
+def _setup_routes(self):
+    self.app.route('/my-endpoint')(self.handlers.my_new_endpoint)
 ```
-
----
 
 ## 🛠️ Troubleshooting
 
-### LED funciona ao contrário
+### LED funciona invertido
 
-**Sintoma**: `/led/on` apaga o LED, `/led/off` acende.
+**Sintoma**: `/led/on` apaga o LED.
 
-**Causa**: LED é active-low (comum em placas ESP32).
-
-**Solução**: Edite `src/constants.py`:
+**Solução**: LED é active-low. Verifique `src/constants.py`:
 ```python
-LED_INVERTED = True  # ✅ Já está configurado
+LED_INVERTED = True  # ✅ Já configurado
 ```
 
 ### Display não funciona
 
-**Sintoma**: Display não mostra nada.
+**Diagnóstico**:
+```python
+# No REPL (mpremote connect COM3)
+from machine import I2C, Pin
+i2c = I2C(0, scl=Pin(6), sda=Pin(5))
+i2c.scan()  # Deve retornar [60] (0x3C)
+```
 
-**Causa**: Display não conectado ou endereço I2C errado.
-
-**Solução**:
-1. Verifique conexões físicas (SCL=6, SDA=5)
-2. Teste no REPL:
-   ```python
-   from machine import I2C, Pin
-   i2c = I2C(0, scl=Pin(6), sda=Pin(5))
-   i2c.scan()  # Deve retornar [60] (0x3C)
-   ```
-3. Aplicação continua funcionando mesmo sem display
+**Solução**: Verifique conexões físicas (SCL=6, SDA=5).
 
 ### WiFi não conecta
 
-**Sintoma**: LED fica piscando, nunca apaga.
+**Sintomas**: LED piscando indefinidamente.
 
-**Soluções**:
-1. **Verifique `.env`**: Credenciais corretas?
-2. **2.4GHz obrigatório**: ESP32 não suporta 5GHz
-3. **iPhone hotspot**: Ative "Maximizar Compatibilidade"
-4. **Scan de redes**:
-   ```python
-   # No REPL
-   import network
-   wlan = network.WLAN(network.STA_IF)
-   wlan.active(True)
-   wlan.scan()  # Lista redes disponíveis
-   ```
+**Checklist**:
+- ✅ Rede é 2.4GHz (ESP32-C3 não suporta 5GHz)
+- ✅ Credenciais corretas no `src/.env`
+- ✅ SSID visível e alcançável
+- ✅ Senha sem caracteres especiais problemáticos
 
-### WebREPL não conecta
-
-**Sintoma**: Erro "WebSocket connection failed".
-
-**Soluções**:
-1. Verifique se WebREPL está rodando:
-   ```bash
-   mpremote connect COM3
-   # No REPL: import webrepl; webrepl.start()
-   ```
-2. Use WebSocket na porta **8266** (não 5000):
-   ```
-   ws://192.168.x.x:8266/
-   ```
-3. Senha padrão: `star`
-
-### Erro "ImportError: no module named 'network.wifi_manager'"
-
-**Causa**: Conflito com módulo built-in `network` do MicroPython.
-
-**Solução**: ✅ Já corrigido - pasta renomeada para `net_manager`
-
-### ESP32 não reseta após upload
-
-**Solução**:
-```bash
-# Reset manual
-mpremote connect COM3 exec "import machine; machine.reset()"
-
-# Ou pressione o botão RESET físico na placa
+**Debug**:
+```python
+# No REPL
+import network
+wlan = network.WLAN(network.STA_IF)
+wlan.active(True)
+wlan.scan()  # Lista redes disponíveis
 ```
 
----
+### Porta serial não detectada (Linux)
 
-## 🔐 Segurança
+```bash
+# Adicionar usuário ao grupo dialout
+sudo usermod -a -G dialout $USER
+# Fazer logout e login novamente
+```
 
-### Práticas Implementadas
+### Deploy falha com "Device busy"
 
-✅ Credenciais em `.env` (não commitadas)
-✅ `.gitignore` protege arquivos sensíveis
-✅ Validação de entrada (prevenção de directory traversal)
-✅ Validação de parâmetros com limites (count, interval, speed, text length)
-✅ Sanitização de caracteres em Morse (apenas suportados)
-✅ WebREPL com senha
-✅ Sem hardcoded secrets no código
-✅ Rate limiting implícito (limites de operação por request)
+1. Feche Thonny ou outros programas usando a porta serial
+2. Desconecte e reconecte o cabo USB
+3. Pressione o botão RESET no ESP32
 
-### Recomendações
+## 📄 Licença
 
-- 🔒 Troque senha do WebREPL em produção
-- 🔒 Use redes WiFi com WPA2/WPA3
-- 🔒 Não exponha porta 5000 para internet pública
-- 🔒 Faça backup do `.env` de forma segura
+Este projeto é open-source e está disponível sob a [Licença MIT](LICENSE).
 
----
+## 👨‍💻 Autor
 
-## 🎓 Características Notáveis
-
-### Hardware
-
-- **ESP32-C3 Supermini** com display OLED 0.42" (72x40px)
-- **Display**: SSD1306, I2C (SCL=6, SDA=5, addr=0x3C)
-- **LED**: Pino 8 (GPIO8), **active-low** (invertido)
-- **WiFi**: 2.4GHz apenas (802.11 b/g/n)
-
-### Software
-
-- **MicroPython v1.27.0** (ESP32-C3)
-- **Async/await**: `asyncio` para concorrência
-- **Microdot**: Web framework assíncrono
-- **micropython-dotenv**: Gerenciamento de configuração
-- **WebREPL**: Acesso remoto ao REPL Python
-- **Código Morse**: Encoder ITU-R M.1677-1 com feedback visual
-
-### Funcionalidades Avançadas
-
-- **LED Blinking**: Controle parametrizado de piscadas
-- **Morse Code Encoder**: Transmissão de texto em código Morse com display progressivo
-- **Storage Monitoring**: Monitoramento de espaço em disco (total, usado, livre)
-- **Progressive Display**: Atualização em tempo real durante transmissão Morse
-
-### Arquitetura
-
-- **Zero globals**: Dependency injection pattern
-- **Layered architecture**: Core → Hardware → Network → Web
-- **Error resilience**: Try-catch + graceful degradation
-- **Logging**: Structured logs com timestamps
-- **Type hints**: Documentação via tipos Python
-- **Input validation**: Validação robusta de parâmetros (limites, tipos, sanitização)
-
----
-
-## 📖 Documentação Adicional
-
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Arquitetura detalhada e padrões de design
-- **[TESTING_GUIDE.md](TESTING_GUIDE.md)** - Como testar com .env
-- **[MIGRATION_GUIDE.md](MIGRATION_GUIDE.md)** - Migração completa passo a passo
-- **[micropython-dotenv/](micropython-dotenv/)** - Biblioteca de configuração
-
----
+- **Wesley Fernandes** - [@Holdrulff](https://github.com/Holdrulff)
+- **Instituição**: EACH-USP
+- **Curso**: Sistemas de Informação
+- **Disciplina**: Computação Física Aplicada (CFA)
 
 ## 🤝 Contribuindo
 
-Este é um projeto educacional desenvolvido para **Computação Física Aplicada (CFA)**.
+Contribuições são bem-vindas! Por favor:
 
-Melhorias são bem-vindas:
 1. Fork o projeto
-2. Crie uma branch (`git checkout -b feature/melhoria`)
-3. Commit suas mudanças (`git commit -m 'Add: nova feature'`)
-4. Push para a branch (`git push origin feature/melhoria`)
+2. Crie uma feature branch (`git checkout -b feature/nova-funcionalidade`)
+3. Commit suas mudanças (`git commit -m 'Add: nova funcionalidade'`)
+4. Push para a branch (`git push origin feature/nova-funcionalidade`)
 5. Abra um Pull Request
 
 ---
 
-## 📜 Licença
-
-Este projeto é open-source e está disponível sob a licença MIT.
-
----
-
-## 👨‍💻 Autor
-
-**Projeto Original**: Prof. Fábio Nakano
-**Refatorado por**: Wesley Fernandes - Graduando
-**Instituição**: EACH-USP
-**Curso**: Sistemas de Informação
-
----
-
-**📌 Versão**: 2.0 (Refactored Edition)
+**📌 Versão**: 3.0.0
 **📅 Última atualização**: Março 2026
+**⭐ Star este repositório se foi útil!**
