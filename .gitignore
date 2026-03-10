@@ -34,5 +34,6 @@ src/.env
 .DS_Store
 Thumbs.db
 
-# Project specific
-micropython-dotenv.claude/
+REVIEW.md
+
+

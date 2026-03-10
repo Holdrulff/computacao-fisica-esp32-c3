@@ -165,7 +165,6 @@ class Application:
             mem_free = gc.mem_free()
             self.logger.info(f"Memory before start: {mem_free} bytes free")
         except AttributeError:
-            # gc.mem_free() not available on all platforms
             self.logger.info("Memory monitoring not available on this platform")
 
         self.setup()

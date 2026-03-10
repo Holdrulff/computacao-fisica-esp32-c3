@@ -14,9 +14,15 @@ import sys
 sys.path.append('/lib')  # Ensure lib directory is in path
 
 from dotenv_micro import load_dotenv, get_env
+from core.logger import get_logger, LogLevel
 
 # Load environment variables from .env file
-load_dotenv('.env')
+try:
+    load_dotenv('.env')
+except Exception as e:
+    logger = get_logger('Config')
+    logger.error(f"Failed to load .env file: {e}")
+    
 
 # WiFi Configuration (loaded from .env)
 WIFI_SSID = get_env('WIFI_SSID', 'default_network')
