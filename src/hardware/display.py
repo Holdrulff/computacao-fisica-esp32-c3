@@ -43,6 +43,7 @@ class Display:
 
             # Initialize display driver
             self.logger.info(f"Display detected at {hex(i2c_addr)}, initializing driver...")
+            
             import ssd1306
             self._driver = ssd1306.SSD1306_I2C(
                 constants.DISPLAY_WIDTH,
